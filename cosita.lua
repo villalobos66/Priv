@@ -1,23 +1,31 @@
-local settings = {repeatamount = 26, exceptions = {"SayMessageRequest","MeleeUpdateEvent","NinjaBombEvent","BulletUpdateEvent"}}
+local settings = {
+    repeatamount = 26,
+    -- Solo eventos de ataque
+    attackEvents = {"AttackEvent", "DamageEvent", "HitEvent", "SwingEvent", "MeleeEvent"}
+}
 
 local mt = getrawmetatable(game)
 local old = mt.__namecall
 setreadonly(mt, false)
 
 mt.__namecall = function(uh, ...)
-  local args = {...}
-  local method = getnamecallmethod()
-  for i,o in next, settings.exceptions do
-      if uh.Name == o then
-          return old(uh, ...)
-      end
-  end
-  if method == "FireServer" or method == "InvokeServer" then
-      for i = 1,settings.repeatamount do
-          old(uh, ...)
-      end
-  end
-  return old(uh, ...)
+    local method = getnamecallmethod()
+    
+    -- Verificar si es un evento remoto (FireServer/InvokeServer)
+    if method == "FireServer" or method == "InvokeServer" then
+        -- Verificar si el nombre del objeto coincide con algún evento de ataque
+        for _, attackName in next, settings.attackEvents do
+            if uh.Name == attackName then
+                -- Repetir el ataque
+                for i = 1, settings.repeatamount do
+                    old(uh, ...)
+                end
+                break
+            end
+        end
+    end
+    
+    return old(uh, ...)
 end
 
 setreadonly(mt, true)
