@@ -1,4 +1,4 @@
--- Script principal sin emojis con movimiento táctil mejorado
+-- Script principal con hitbox mejorado
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -39,6 +39,9 @@ local closestBtn = nil
 local content = nil
 local mainFrame = nil
 local mainScreenGui = nil
+
+-- Conexiones para limpiar
+local hitboxConnection = nil
 
 -- Lista de usuarios prohibidos
 local PROHIBITED_USERS = {
@@ -119,19 +122,24 @@ local function findPlayerByPartialName(inputText)
     return false, "Jugador no encontrado o esta en lista prohibida"
 end
 
--- Funciones del hitbox
+-- Funciones del hitbox mejoradas
+local function resetHitbox(target)
+    pcall(function()
+        if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = target.Character.HumanoidRootPart
+            rootPart.Size = Vector3.new(2, 2, 1)
+            rootPart.Transparency = 1
+            rootPart.BrickColor = BrickColor.new("Medium stone grey")
+            rootPart.Material = Enum.Material.Plastic
+            rootPart.CanCollide = false
+        end
+    end)
+end
+
 local function resetAllHitboxes()
     for _, v in pairs(Players:GetPlayers()) do
         if v ~= player then
-            pcall(function()
-                if v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
-                    v.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
-                    v.Character.HumanoidRootPart.Transparency = 1
-                    v.Character.HumanoidRootPart.BrickColor = BrickColor.new("Medium stone grey")
-                    v.Character.HumanoidRootPart.Material = "Plastic"
-                    v.Character.HumanoidRootPart.CanCollide = false
-                end
-            end)
+            resetHitbox(v)
         end
     end
 end
@@ -139,11 +147,13 @@ end
 local function applyHitboxToPlayer(target)
     pcall(function()
         if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            target.Character.HumanoidRootPart.Size = Vector3.new(HITBOX_SIZE, HITBOX_SIZE, HITBOX_SIZE)
-            target.Character.HumanoidRootPart.Transparency = HITBOX_TRANSPARENCY
-            target.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really black")
-            target.Character.HumanoidRootPart.Material = "Neon"
-            target.Character.HumanoidRootPart.CanCollide = false
+            local rootPart = target.Character.HumanoidRootPart
+            rootPart.Size = Vector3.new(HITBOX_SIZE, HITBOX_SIZE, HITBOX_SIZE)
+            rootPart.Transparency = HITBOX_TRANSPARENCY
+            rootPart.BrickColor = BrickColor.new("Really black")
+            rootPart.Material = Enum.Material.Neon
+            rootPart.CanCollide = false
+            print("Hitbox aplicado a: " .. target.Name .. " - Tamaño: " .. HITBOX_SIZE)
         end
     end)
 end
@@ -151,10 +161,12 @@ end
 local function shouldHitPlayer(playerObj)
     if playerObj == player then return false end
     if isPlayerProhibited(playerObj) then return false end
+    if not playerObj.Character then return false end
+    if not playerObj.Character:FindFirstChild("HumanoidRootPart") then return false end
     return true
 end
 
--- Funcion para actualizar hitboxes
+-- Funcion para actualizar hitboxes mejorada
 local function updateHitboxes()
     if not HitboxEnabled then
         resetAllHitboxes()
@@ -162,14 +174,24 @@ local function updateHitboxes()
     end
     
     if targetPlayer then
-        resetAllHitboxes()
+        -- Modo target: solo afecta al jugador seleccionado
         if shouldHitPlayer(targetPlayer) then
+            -- Resetear todos primero
+            for _, v in pairs(Players:GetPlayers()) do
+                if v ~= player and v ~= targetPlayer then
+                    resetHitbox(v)
+                end
+            end
+            -- Aplicar al target
             applyHitboxToPlayer(targetPlayer)
         end
     else
+        -- Modo normal: afecta a todos los jugadores excepto prohibidos
         for _, v in pairs(Players:GetPlayers()) do
             if shouldHitPlayer(v) then
                 applyHitboxToPlayer(v)
+            else
+                resetHitbox(v)
             end
         end
     end
@@ -296,8 +318,8 @@ local function setTPWalkEnabled(enabled)
     end
 end
 
--- Loop principal del hitbox
-RunService.RenderStepped:Connect(updateHitboxes)
+-- Loop principal del hitbox con Heartbeat para mejor rendimiento
+hitboxConnection = RunService.Heartbeat:Connect(updateHitboxes)
 
 -- Crear GUI con movimiento táctil mejorado
 local function CreateMainFrame(titleText, sizeX, sizeY)
@@ -332,7 +354,7 @@ local function CreateMainFrame(titleText, sizeX, sizeY)
     UIStroke.Thickness = 1.1
     UIStroke.Parent = Frame
 
-    -- Barra de título (ahora también se puede arrastrar)
+    -- Barra de título
     local TitleBar = Instance.new("Frame")
     TitleBar.Size = UDim2.new(1, 0, 0, 30)
     TitleBar.BackgroundTransparency = 1
@@ -403,24 +425,23 @@ local function CreateMainFrame(titleText, sizeX, sizeY)
     DeleteButton.MouseButton1Click:Connect(function()
         if loopWalkSpeedConnection then loopWalkSpeedConnection:Disconnect() end
         if tpWalkConnection then tpWalkConnection:Disconnect() end
+        if hitboxConnection then hitboxConnection:Disconnect() end
         Frame:Destroy()
         ScreenGui:Destroy()
     end)
 
-    -- Sistema de arrastre mejorado para táctil y mouse
+    -- Sistema de arrastre mejorado
     local dragging = false
     local dragStart = nil
     local startPos = nil
     local dragConnection = nil
     local dragEndConnection = nil
     
-    -- Función para iniciar arrastre
     local function startDrag(input)
         dragging = true
         dragStart = input.Position
         startPos = Frame.Position
         
-        -- Conectar eventos globales para movimiento fluido
         dragConnection = UserInputService.InputChanged:Connect(function(input)
             if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
                input.UserInputType == Enum.UserInputType.Touch) then
@@ -442,22 +463,18 @@ local function CreateMainFrame(titleText, sizeX, sizeY)
         end)
     end
     
-    -- Detectar inicio de arrastre en cualquier parte del Frame
     Frame.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
         
-        -- Permitir arrastre con mouse o toque
         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
            input.UserInputType == Enum.UserInputType.Touch then
             
-            -- Verificar si se hizo clic en botones interactivos
             local target = UserInputService:GetMouseTarget()
             local isInteractiveButton = false
             
             if target then
                 local current = target
                 while current and current ~= Frame do
-                    -- Verificar si es un TextButton o TextBox que debería mantener su funcionalidad
                     if (current:IsA("TextButton") and (current == MinimizeButton or current == DeleteButton)) or
                        current:IsA("TextBox") then
                         isInteractiveButton = true
@@ -467,7 +484,6 @@ local function CreateMainFrame(titleText, sizeX, sizeY)
                 end
             end
             
-            -- Si no es un botón interactivo especial, permitir arrastre
             if not isInteractiveButton then
                 startDrag(input)
             end
@@ -515,7 +531,7 @@ local infoLabel = Instance.new("TextLabel")
 infoLabel.Size = UDim2.new(0.85, 0, 0, 18)
 infoLabel.Position = UDim2.new(0.075, 0, 0.12, 0)
 infoLabel.BackgroundTransparency = 1
-infoLabel.Text = "Tamano: 30 | Transparente"
+infoLabel.Text = "Tamano: " .. HITBOX_SIZE .. " | Transparente"
 infoLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
 infoLabel.Font = Enum.Font.Gotham
 infoLabel.TextSize = 10
@@ -827,10 +843,15 @@ hitboxBtn.MouseButton1Click:Connect(function()
         hitboxBtn.Text = "HITBOX: ON"
         hitboxBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
         hitboxBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
+        print("Hitbox activado - Tamano: " .. HITBOX_SIZE)
+        -- Aplicar inmediatamente
+        updateHitboxes()
     else
         hitboxBtn.Text = "HITBOX: OFF"
         hitboxBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
         hitboxBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        print("Hitbox desactivado")
+        resetAllHitboxes()
     end
 end)
 
@@ -900,6 +921,28 @@ Players.PlayerRemoving:Connect(function(p)
     end
 end)
 
+-- Detectar cuando un jugador entra para aplicar hitbox si está activado
+Players.PlayerAdded:Connect(function(p)
+    task.wait(1) -- Esperar a que el personaje cargue
+    if HitboxEnabled and shouldHitPlayer(p) then
+        applyHitboxToPlayer(p)
+    end
+end)
+
+-- Detectar cuando el personaje de un jugador aparece
+local function onCharacterAdded(playerObj, character)
+    task.wait(0.5)
+    if HitboxEnabled and shouldHitPlayer(playerObj) then
+        applyHitboxToPlayer(playerObj)
+    end
+end
+
+for _, p in pairs(Players:GetPlayers()) do
+    p.CharacterAdded:Connect(function(character)
+        onCharacterAdded(p, character)
+    end)
+end
+
 -- Tecla para abrir/cerrar (F)
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
@@ -916,7 +959,7 @@ setWalkSpeed(16)
 setTPSpeed(3)
 
 print("Hitbox Expander + Movement cargado")
-print("Hitbox: Tamano 30 | Transparente")
+print("Hitbox: Tamano " .. HITBOX_SIZE .. " | Transparente")
 print("Loop WalkSpeed: OFF | TP Walk: OFF")
 print("Tecla F para abrir/cerrar")
 print("Arrastra cualquier parte de la ventana para moverla")
