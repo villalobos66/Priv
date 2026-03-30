@@ -1,4 +1,4 @@
--- Script principal corregido
+-- Script principal sin emojis con movimiento táctil mejorado
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -13,7 +13,7 @@ local exactTargetName = ""
 
 -- Configuración fija del hitbox
 local HITBOX_SIZE = 30
-local HITBOX_TRANSPARENCY = 1  -- Totalmente transparente
+local HITBOX_TRANSPARENCY = 1
 
 -- Variables para WalkSpeed
 local WalkSpeedEnabled = false
@@ -25,7 +25,7 @@ local TPWalkEnabled = false
 local TPSpeedValue = 3
 local tpWalkConnection = nil
 
--- Variables para referencias de UI (declaradas antes de usarlas)
+-- Variables para referencias de UI
 local walkSpeedBtn = nil
 local walkSpeedValueLabel = nil
 local tpWalkBtn = nil
@@ -38,6 +38,7 @@ local clearTargetBtn = nil
 local closestBtn = nil
 local content = nil
 local mainFrame = nil
+local mainScreenGui = nil
 
 -- Lista de usuarios prohibidos
 local PROHIBITED_USERS = {
@@ -48,7 +49,7 @@ local PROHIBITED_USERS = {
     "Purarisa0", "Gatitblox", "angeIovers"
 }
 
--- Función para verificar si un jugador está prohibido
+-- Funcion para verificar si un jugador esta prohibido
 local function isPlayerProhibited(playerObj)
     if not playerObj then return false end
     local playerNameLower = playerObj.Name:lower()
@@ -66,7 +67,7 @@ local function isPlayerProhibited(playerObj)
     return false
 end
 
--- Función para buscar jugador por nombre parcial
+-- Funcion para buscar jugador por nombre parcial
 local function findPlayerByPartialName(inputText)
     if inputText == "" or inputText:lower() == "todos" or inputText:lower() == "all" then
         return nil, "TODOS"
@@ -113,9 +114,9 @@ local function findPlayerByPartialName(inputText)
         end
     end
     if #searchText > 0 and #searchText < 3 then
-        return false, "Mínimo 3 letras para buscar"
+        return false, "Minimo 3 letras para buscar"
     end
-    return false, "Jugador no encontrado o está en lista prohibida"
+    return false, "Jugador no encontrado o esta en lista prohibida"
 end
 
 -- Funciones del hitbox
@@ -153,7 +154,7 @@ local function shouldHitPlayer(playerObj)
     return true
 end
 
--- Función para actualizar hitboxes
+-- Funcion para actualizar hitboxes
 local function updateHitboxes()
     if not HitboxEnabled then
         resetAllHitboxes()
@@ -298,12 +299,11 @@ end
 -- Loop principal del hitbox
 RunService.RenderStepped:Connect(updateHitboxes)
 
--- Crear GUI (definir después de las funciones)
+-- Crear GUI con movimiento táctil mejorado
 local function CreateMainFrame(titleText, sizeX, sizeY)
     sizeX = sizeX or 280
-    sizeY = sizeY or 380
+    sizeY = sizeY or 420
 
-    -- Verificar si ya existe y eliminarlo
     local existingGui = player.PlayerGui:FindFirstChild("HitboxGUI")
     if existingGui then
         existingGui:Destroy()
@@ -332,6 +332,7 @@ local function CreateMainFrame(titleText, sizeX, sizeY)
     UIStroke.Thickness = 1.1
     UIStroke.Parent = Frame
 
+    -- Barra de título (ahora también se puede arrastrar)
     local TitleBar = Instance.new("Frame")
     TitleBar.Size = UDim2.new(1, 0, 0, 30)
     TitleBar.BackgroundTransparency = 1
@@ -341,7 +342,7 @@ local function CreateMainFrame(titleText, sizeX, sizeY)
     Title.Size = UDim2.new(0.7, 0, 1, 0)
     Title.Position = UDim2.new(0, 9, 0, 0)
     Title.BackgroundTransparency = 1
-    Title.Text = titleText or "Hitbox"
+    Title.Text = titleText or "Hitbox Expander + Movement"
     Title.TextColor3 = Color3.fromRGB(255, 255, 255)
     Title.TextSize = 14
     Title.Font = Enum.Font.GothamBold
@@ -406,84 +407,95 @@ local function CreateMainFrame(titleText, sizeX, sizeY)
         ScreenGui:Destroy()
     end)
 
-    -- Sistema de arrastre
+    -- Sistema de arrastre mejorado para táctil y mouse
     local dragging = false
     local dragStart = nil
     local startPos = nil
-
+    local dragConnection = nil
+    local dragEndConnection = nil
+    
+    -- Función para iniciar arrastre
     local function startDrag(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = Frame.Position
-        end
+        dragging = true
+        dragStart = input.Position
+        startPos = Frame.Position
+        
+        -- Conectar eventos globales para movimiento fluido
+        dragConnection = UserInputService.InputChanged:Connect(function(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
+               input.UserInputType == Enum.UserInputType.Touch) then
+                local delta = input.Position - dragStart
+                Frame.Position = UDim2.new(
+                    startPos.X.Scale, startPos.X.Offset + delta.X,
+                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                )
+            end
+        end)
+        
+        dragEndConnection = UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+               input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+                if dragConnection then dragConnection:Disconnect() end
+                if dragEndConnection then dragEndConnection:Disconnect() end
+            end
+        end)
     end
-
-    local function updateDrag(input)
-        if dragging and dragStart then
-            local delta = input.Position - dragStart
-            Frame.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
-        end
-    end
-
-    Frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local target = input.UserInputState == Enum.InputState.Begin and UserInputService:GetMouseTarget()
+    
+    -- Detectar inicio de arrastre en cualquier parte del Frame
+    Frame.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        
+        -- Permitir arrastre con mouse o toque
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            
+            -- Verificar si se hizo clic en botones interactivos
+            local target = UserInputService:GetMouseTarget()
+            local isInteractiveButton = false
+            
             if target then
-                local isInteractive = false
                 local current = target
                 while current and current ~= Frame do
-                    if current:IsA("TextButton") or current:IsA("TextBox") then
-                        isInteractive = true
+                    -- Verificar si es un TextButton o TextBox que debería mantener su funcionalidad
+                    if (current:IsA("TextButton") and (current == MinimizeButton or current == DeleteButton)) or
+                       current:IsA("TextBox") then
+                        isInteractiveButton = true
                         break
                     end
                     current = current.Parent
                 end
-                if not isInteractive then startDrag(input) end
-            else
+            end
+            
+            -- Si no es un botón interactivo especial, permitir arrastre
+            if not isInteractiveButton then
                 startDrag(input)
             end
         end
     end)
 
-    Frame.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            updateDrag(input)
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-            dragStart = nil
-        end
-    end)
-
-    return Content, Frame
+    return Content, Frame, ScreenGui
 end
 
 -- Esperar a que el personaje cargue
 repeat task.wait() until player.Character and player.Character:FindFirstChild("Humanoid")
 
 -- Crear GUI
-content, mainFrame = CreateMainFrame("Hitbox", 280, 420)
+content, mainFrame, mainScreenGui = CreateMainFrame("Hitbox Expander + Movement", 280, 420)
 
--- ==================== SECCIÓN HITBOX ====================
+-- Seccion HITBOX
 local hitboxSection = Instance.new("TextLabel")
 hitboxSection.Size = UDim2.new(0.85, 0, 0, 20)
 hitboxSection.Position = UDim2.new(0.075, 0, 0, 0)
 hitboxSection.BackgroundTransparency = 1
-hitboxSection.Text = "━━━━━━ HITBOX ━━━━━━"
+hitboxSection.Text = "----- HITBOX -----"
 hitboxSection.TextColor3 = Color3.fromRGB(255, 200, 100)
 hitboxSection.Font = Enum.Font.GothamBold
 hitboxSection.TextSize = 11
 hitboxSection.TextXAlignment = Enum.TextXAlignment.Center
 hitboxSection.Parent = content
 
--- Botón principal de activación
+-- Boton principal de activacion
 hitboxBtn = Instance.new("TextButton")
 hitboxBtn.Size = UDim2.new(0.85, 0, 0, 35)
 hitboxBtn.Position = UDim2.new(0.075, 0, 0.07, 0)
@@ -503,7 +515,7 @@ local infoLabel = Instance.new("TextLabel")
 infoLabel.Size = UDim2.new(0.85, 0, 0, 18)
 infoLabel.Position = UDim2.new(0.075, 0, 0.12, 0)
 infoLabel.BackgroundTransparency = 1
-infoLabel.Text = ""
+infoLabel.Text = "Tamano: 30 | Transparente"
 infoLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
 infoLabel.Font = Enum.Font.Gotham
 infoLabel.TextSize = 10
@@ -518,19 +530,19 @@ separator1.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 separator1.BorderSizePixel = 0
 separator1.Parent = content
 
--- ==================== SECCIÓN MOVIMIENTO ====================
+-- Seccion MOVIMIENTO
 local movementSection = Instance.new("TextLabel")
 movementSection.Size = UDim2.new(0.85, 0, 0, 20)
 movementSection.Position = UDim2.new(0.075, 0, 0.19, 0)
 movementSection.BackgroundTransparency = 1
-movementSection.Text = "━━━━━━ MOVIMIENTO ━━━━━━"
+movementSection.Text = "----- MOVIMIENTO -----"
 movementSection.TextColor3 = Color3.fromRGB(255, 200, 100)
 movementSection.Font = Enum.Font.GothamBold
 movementSection.TextSize = 11
 movementSection.TextXAlignment = Enum.TextXAlignment.Center
 movementSection.Parent = content
 
--- Botón Loop WalkSpeed
+-- Boton Loop WalkSpeed
 walkSpeedBtn = Instance.new("TextButton")
 walkSpeedBtn.Size = UDim2.new(0.85, 0, 0, 32)
 walkSpeedBtn.Position = UDim2.new(0.075, 0, 0.24, 0)
@@ -573,7 +585,7 @@ local wsInputCorner = Instance.new("UICorner")
 wsInputCorner.CornerRadius = UDim.new(0, 6)
 wsInputCorner.Parent = walkSpeedInput
 
--- Botón TP Walk
+-- Boton TP Walk
 tpWalkBtn = Instance.new("TextButton")
 tpWalkBtn.Size = UDim2.new(0.85, 0, 0, 32)
 tpWalkBtn.Position = UDim2.new(0.075, 0, 0.37, 0)
@@ -624,19 +636,19 @@ separator2.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 separator2.BorderSizePixel = 0
 separator2.Parent = content
 
--- ==================== SECCIÓN TARGET ====================
+-- Seccion TARGET
 local targetSection = Instance.new("TextLabel")
 targetSection.Size = UDim2.new(0.85, 0, 0, 20)
 targetSection.Position = UDim2.new(0.075, 0, 0.52, 0)
 targetSection.BackgroundTransparency = 1
-targetSection.Text = "━━━━━━ SISTEMA TARGET ━━━━━━"
+targetSection.Text = "----- SISTEMA TARGET -----"
 targetSection.TextColor3 = Color3.fromRGB(255, 200, 100)
 targetSection.Font = Enum.Font.GothamBold
 targetSection.TextSize = 11
 targetSection.TextXAlignment = Enum.TextXAlignment.Center
 targetSection.Parent = content
 
--- Campo de búsqueda
+-- Campo de busqueda
 targetBox = Instance.new("TextBox")
 targetBox.Size = UDim2.new(0.85, 0, 0, 28)
 targetBox.Position = UDim2.new(0.075, 0, 0.57, 0)
@@ -684,7 +696,7 @@ buttonContainer.Position = UDim2.new(0.075, 0, 0.70, 0)
 buttonContainer.BackgroundTransparency = 1
 buttonContainer.Parent = content
 
--- Botón Limpiar Target
+-- Boton Limpiar Target
 clearTargetBtn = Instance.new("TextButton")
 clearTargetBtn.Size = UDim2.new(0.48, 0, 1, 0)
 clearTargetBtn.Position = UDim2.new(0, 0, 0, 0)
@@ -699,12 +711,12 @@ local clearCorner = Instance.new("UICorner")
 clearCorner.CornerRadius = UDim.new(0, 6)
 clearCorner.Parent = clearTargetBtn
 
--- Botón Targetear Más Cercano
+-- Boton Targetear Mas Cercano
 closestBtn = Instance.new("TextButton")
 closestBtn.Size = UDim2.new(0.48, 0, 1, 0)
 closestBtn.Position = UDim2.new(0.52, 0, 0, 0)
 closestBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 200)
-closestBtn.Text = "Más Cercano"
+closestBtn.Text = "Mas Cercano"
 closestBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 closestBtn.Font = Enum.Font.GothamBold
 closestBtn.TextSize = 11
@@ -714,7 +726,7 @@ local closestCorner = Instance.new("UICorner")
 closestCorner.CornerRadius = UDim.new(0, 6)
 closestCorner.Parent = closestBtn
 
--- Función para actualizar estado del target
+-- Funcion para actualizar estado del target
 local function updateTargetStatus()
     if targetPlayer then
         targetStatus.Text = "Objetivo: " .. exactTargetName
@@ -726,7 +738,7 @@ local function updateTargetStatus()
     end
 end
 
--- Función para buscar y establecer target
+-- Funcion para buscar y establecer target
 local function searchAndSetTarget()
     local searchText = targetBox.Text:gsub("%s+", "")
     local foundPlayer, resultName = findPlayerByPartialName(searchText)
@@ -749,13 +761,13 @@ local function searchAndSetTarget()
         searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
     end
     task.wait(3)
-    if searchResult.Text:sub(1,1) == "" or searchResult.Text:find("no encontrado") or searchResult.Text:find("Mínimo") then
+    if searchResult.Text:sub(1,1) == "E" or searchResult.Text:find("no encontrado") or searchResult.Text:find("Minimo") then
         searchResult.Text = "Presiona Enter para buscar"
         searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
     end
 end
 
--- Función para targetear al jugador más cercano
+-- Funcion para targetear al jugador mas cercano
 local function targetClosest()
     local closestDistance = math.huge
     local closestPlayer = nil
@@ -780,7 +792,7 @@ local function targetClosest()
         targetPlayerName = closestPlayer.Name
         updateTargetStatus()
         targetBox.Text = closestPlayer.Name
-        searchResult.Text = "Target más cercano: " .. exactTargetName
+        searchResult.Text = "Target mas cercano: " .. exactTargetName
         searchResult.TextColor3 = Color3.fromRGB(80, 255, 80)
         task.wait(2)
         searchResult.Text = "Presiona Enter para buscar"
@@ -794,7 +806,7 @@ local function targetClosest()
     end
 end
 
--- Función para limpiar target
+-- Funcion para limpiar target
 local function clearTarget()
     targetPlayer = nil
     exactTargetName = "TODOS"
@@ -833,10 +845,10 @@ walkSpeedInput.FocusLost:Connect(function(enter)
             setWalkSpeed(value)
         else
             walkSpeedInput.Text = tostring(WalkSpeedValue)
-            searchResult.Text = "Velocidad inválida (16-500)"
+            searchResult.Text = "Velocidad invalida (16-500)"
             searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
             task.wait(2)
-            if searchResult.Text:find("inválida") then
+            if searchResult.Text:find("invalida") then
                 searchResult.Text = "Presiona Enter para buscar"
                 searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
             end
@@ -855,10 +867,10 @@ tpSpeedInput.FocusLost:Connect(function(enter)
             setTPSpeed(value)
         else
             tpSpeedInput.Text = tostring(TPSpeedValue)
-            searchResult.Text = "Velocidad TP inválida (1-50)"
+            searchResult.Text = "Velocidad TP invalida (1-50)"
             searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
             task.wait(2)
-            if searchResult.Text:find("inválida") then
+            if searchResult.Text:find("invalida") then
                 searchResult.Text = "Presiona Enter para buscar"
                 searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
             end
@@ -880,7 +892,7 @@ Players.PlayerRemoving:Connect(function(p)
         exactTargetName = "TODOS"
         targetBox.Text = ""
         updateTargetStatus()
-        searchResult.Text = "El objetivo salió del juego"
+        searchResult.Text = "El objetivo salio del juego"
         searchResult.TextColor3 = Color3.fromRGB(255, 150, 50)
         task.wait(2)
         searchResult.Text = "Presiona Enter para buscar"
@@ -898,12 +910,13 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
--- Inicialización
+-- Inicializacion
 updateTargetStatus()
 setWalkSpeed(16)
 setTPSpeed(3)
 
-print(" Hitbox Expander + Movement cargado")
-print(" Hitbox: Tamaño 30 | Totalmente transparente")
-print(" Loop WalkSpeed: OFF | TP Walk: OFF")
-print(" Tecla F para abrir/cerrar")
+print("Hitbox Expander + Movement cargado")
+print("Hitbox: Tamano 30 | Transparente")
+print("Loop WalkSpeed: OFF | TP Walk: OFF")
+print("Tecla F para abrir/cerrar")
+print("Arrastra cualquier parte de la ventana para moverla")
