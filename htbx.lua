@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 
@@ -25,6 +26,20 @@ local TPWalkEnabled = false
 local TPSpeedValue = 3
 local tpWalkConnection = nil
 
+-- ==================== DAMAGE REPEATER ====================
+local REPEAT_AMOUNT = 26
+local damageRepeaterEnabled = false
+local mt = nil
+local old = nil
+
+-- Excepciones - eventos que NO se repetirán
+local exceptions = {
+    "SayMessageRequest",
+    "MeleeUpdateEvent", 
+    "NinjaBombEvent",
+    "BulletUpdateEvent"
+}
+
 -- Variables para referencias de UI
 local walkSpeedBtn = nil
 local walkSpeedValueLabel = nil
@@ -38,6 +53,8 @@ local clearTargetBtn = nil
 local closestBtn = nil
 local configFrame = nil
 local configScreenGui = nil
+local repeatInput = nil
+local repeatStatusLabel = nil
 
 -- Variables para la interfaz de botones
 local buttonsFrame = nil
@@ -45,9 +62,79 @@ local buttonsScreenGui = nil
 local hitboxBtn = nil
 local tpWalkBtn = nil
 local antiRagdollBtn = nil
+local damageRepeaterBtn = nil
 
 -- Conexiones para limpiar
 local hitboxConnection = nil
+
+-- ==================== FUNCIONES DAMAGE REPEATER ====================
+local function EnableDamageRepeater()
+    if not mt then
+        mt = getrawmetatable(game)
+        old = mt.__namecall
+        setreadonly(mt, false)
+    end
+    
+    mt.__namecall = function(self, ...)
+        local method = getnamecallmethod()
+        
+        for _, exception in pairs(exceptions) do
+            if self.Name == exception then
+                return old(self, ...)
+            end
+        end
+        
+        if method == "FireServer" or method == "InvokeServer" then
+            if string.find(self.Name:lower(), "hit") or 
+               string.find(self.Name:lower(), "damage") or
+               string.find(self.Name:lower(), "attack") or
+               string.find(self.Name:lower(), "melee") then
+                
+                for i = 1, REPEAT_AMOUNT do
+                    old(self, ...)
+                end
+                return
+            end
+        end
+        
+        return old(self, ...)
+    end
+end
+
+local function DisableDamageRepeater()
+    if mt then
+        mt.__namecall = old
+        setreadonly(mt, true)
+    end
+end
+
+local function toggleDamageRepeater()
+    damageRepeaterEnabled = not damageRepeaterEnabled
+    
+    if damageRepeaterEnabled then
+        EnableDamageRepeater()
+        if damageRepeaterBtn then
+            damageRepeaterBtn.Text = "REP\nON"
+            damageRepeaterBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
+            damageRepeaterBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
+        end
+        if repeatStatusLabel then
+            repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x"
+            repeatStatusLabel.TextColor3 = Color3.fromRGB(80, 255, 80)
+        end
+    else
+        DisableDamageRepeater()
+        if damageRepeaterBtn then
+            damageRepeaterBtn.Text = "REP\nOFF"
+            damageRepeaterBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+            damageRepeaterBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        end
+        if repeatStatusLabel then
+            repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x"
+            repeatStatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+        end
+    end
+end
 
 -- ==================== ANTI-RAGDOLL ====================
 local antiRagdollConnection = nil
@@ -311,7 +398,7 @@ local function setWalkSpeed(value)
         end)
     end
     if walkSpeedValueLabel then
-        walkSpeedValueLabel.Text = "Velocidad actual: " .. string.format("%.2f", WalkSpeedValue)
+        walkSpeedValueLabel.Text = "Vel actual: " .. string.format("%.2f", WalkSpeedValue)
     end
 end
 
@@ -375,7 +462,7 @@ end
 local function setTPSpeed(value)
     TPSpeedValue = tonumber(value)
     if tpSpeedValueLabel then
-        tpSpeedValueLabel.Text = "Velocidad TP: " .. string.format("%.2f", TPSpeedValue)
+        tpSpeedValueLabel.Text = "Vel TP: " .. string.format("%.2f", TPSpeedValue)
     end
 end
 
@@ -396,7 +483,44 @@ local function setTPWalkEnabled(enabled)
     end
 end
 
--- ==================== INTERFAZ DE BOTONES PRINCIPALES (REDUCIDA) ====================
+-- ==================== FUNCIÓN DE ARRASTRE CON BARRA SUPERIOR ====================
+local function MakeDraggableWithHandle(frame, handle)
+    local dragging = false
+    local dragStartPos = nil
+    local frameStartPos = nil
+    
+    handle.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStartPos = input.Position
+            frameStartPos = frame.Position
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
+           input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStartPos
+            frame.Position = UDim2.new(
+                frameStartPos.X.Scale, frameStartPos.X.Offset + delta.X,
+                frameStartPos.Y.Scale, frameStartPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+-- ==================== INTERFAZ DE BOTONES PRINCIPALES ====================
 local function CreateButtonsInterface()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ButtonsGUI"
@@ -405,15 +529,15 @@ local function CreateButtonsInterface()
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 240, 0, 55)
-    Frame.Position = UDim2.new(0.5, -120, 0.02, 0)
+    Frame.Size = UDim2.new(0, 320, 0, 85)
+    Frame.Position = UDim2.new(0.5, -160, 0.02, 0)
     Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
     Frame.BackgroundTransparency = 0.05
     Frame.BorderSizePixel = 0
     Frame.Parent = ScreenGui
 
     local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 10)
+    UICorner.CornerRadius = UDim.new(0, 12)
     UICorner.Parent = Frame
 
     local UIStroke = Instance.new("UIStroke")
@@ -422,132 +546,118 @@ local function CreateButtonsInterface()
     UIStroke.Transparency = 0.5
     UIStroke.Parent = Frame
 
-    -- BARRA DE ARRASTRE
-    local DragBar = Instance.new("Frame")
-    DragBar.Size = UDim2.new(1, 0, 0, 20)
-    DragBar.Position = UDim2.new(0, 0, 0, 0)
-    DragBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    DragBar.BackgroundTransparency = 0.3
-    DragBar.BorderSizePixel = 0
-    DragBar.Parent = Frame
+    -- Barra superior (MANEJADOR DE ARRASTRE)
+    local TopBar = Instance.new("Frame")
+    TopBar.Size = UDim2.new(1, 0, 0, 35)
+    TopBar.Position = UDim2.new(0, 0, 0, 0)
+    TopBar.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+    TopBar.BackgroundTransparency = 0.2
+    TopBar.BorderSizePixel = 0
+    TopBar.Parent = Frame
 
-    local DragBarCorner = Instance.new("UICorner")
-    DragBarCorner.CornerRadius = UDim.new(0, 10)
-    DragBarCorner.Parent = DragBar
+    local TopBarCorner = Instance.new("UICorner")
+    TopBarCorner.CornerRadius = UDim.new(0, 12)
+    TopBarCorner.Parent = TopBar
 
-    local DragText = Instance.new("TextLabel")
-    DragText.Size = UDim2.new(0.7, 0, 1, 0)
-    DragText.Position = UDim2.new(0, 8, 0, 0)
-    DragText.BackgroundTransparency = 1
-    DragText.Text = "⋮⋮ PANEL ⋮⋮"
-    DragText.TextColor3 = Color3.fromRGB(200, 200, 255)
-    DragText.TextSize = 9
-    DragText.Font = Enum.Font.GothamBold
-    DragText.TextXAlignment = Enum.TextXAlignment.Left
-    DragText.Parent = DragBar
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(0.6, 0, 1, 0)
+    Title.Position = UDim2.new(0, 12, 0, 0)
+    Title.BackgroundTransparency = 1
+    Title.Text = "⋮⋮  PANEL DE CONTROL  ⋮⋮"
+    Title.TextColor3 = Color3.fromRGB(200, 200, 255)
+    Title.TextSize = 11
+    Title.Font = Enum.Font.GothamBold
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = TopBar
+
+    -- Botón configuración
+    local ConfigButton = Instance.new("TextButton")
+    ConfigButton.Size = UDim2.new(0, 35, 0, 30)
+    ConfigButton.Position = UDim2.new(1, -42, 0, 2.5)
+    ConfigButton.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+    ConfigButton.Text = "⚙️"
+    ConfigButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ConfigButton.Font = Enum.Font.GothamBold
+    ConfigButton.TextSize = 16
+    ConfigButton.Parent = TopBar
+
+    local configCorner = Instance.new("UICorner")
+    configCorner.CornerRadius = UDim.new(0, 6)
+    configCorner.Parent = ConfigButton
 
     -- Contenedor de botones
     local ButtonsContainer = Instance.new("Frame")
     ButtonsContainer.Size = UDim2.new(0.96, 0, 0.55, 0)
-    ButtonsContainer.Position = UDim2.new(0.02, 0, 0.4, 0)
+    ButtonsContainer.Position = UDim2.new(0.02, 0, 0.48, 0)
     ButtonsContainer.BackgroundTransparency = 1
     ButtonsContainer.Parent = Frame
 
     -- Botón HITBOX
     hitboxBtn = Instance.new("TextButton")
-    hitboxBtn.Size = UDim2.new(0.32, 0, 1, 0)
+    hitboxBtn.Size = UDim2.new(0.24, 0, 1, 0)
     hitboxBtn.Position = UDim2.new(0, 0, 0, 0)
     hitboxBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     hitboxBtn.Text = "HIT\nOFF"
     hitboxBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     hitboxBtn.Font = Enum.Font.GothamBold
-    hitboxBtn.TextSize = 10
+    hitboxBtn.TextSize = 11
     hitboxBtn.TextWrapped = true
     hitboxBtn.Parent = ButtonsContainer
 
     local hitboxCorner = Instance.new("UICorner")
-    hitboxCorner.CornerRadius = UDim.new(0, 6)
+    hitboxCorner.CornerRadius = UDim.new(0, 8)
     hitboxCorner.Parent = hitboxBtn
 
     -- Botón TP WALK
     tpWalkBtn = Instance.new("TextButton")
-    tpWalkBtn.Size = UDim2.new(0.32, 0, 1, 0)
-    tpWalkBtn.Position = UDim2.new(0.34, 0, 0, 0)
+    tpWalkBtn.Size = UDim2.new(0.24, 0, 1, 0)
+    tpWalkBtn.Position = UDim2.new(0.25, 0, 0, 0)
     tpWalkBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     tpWalkBtn.Text = "TP\nOFF"
     tpWalkBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     tpWalkBtn.Font = Enum.Font.GothamBold
-    tpWalkBtn.TextSize = 10
+    tpWalkBtn.TextSize = 11
     tpWalkBtn.TextWrapped = true
     tpWalkBtn.Parent = ButtonsContainer
 
     local tpWalkCorner = Instance.new("UICorner")
-    tpWalkCorner.CornerRadius = UDim.new(0, 6)
+    tpWalkCorner.CornerRadius = UDim.new(0, 8)
     tpWalkCorner.Parent = tpWalkBtn
 
     -- Botón ANTI-RAGDOLL
     antiRagdollBtn = Instance.new("TextButton")
-    antiRagdollBtn.Size = UDim2.new(0.32, 0, 1, 0)
-    antiRagdollBtn.Position = UDim2.new(0.68, 0, 0, 0)
+    antiRagdollBtn.Size = UDim2.new(0.24, 0, 1, 0)
+    antiRagdollBtn.Position = UDim2.new(0.5, 0, 0, 0)
     antiRagdollBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     antiRagdollBtn.Text = "RAG\nOFF"
     antiRagdollBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     antiRagdollBtn.Font = Enum.Font.GothamBold
-    antiRagdollBtn.TextSize = 10
+    antiRagdollBtn.TextSize = 11
     antiRagdollBtn.TextWrapped = true
     antiRagdollBtn.Parent = ButtonsContainer
 
     local antiRagdollCorner = Instance.new("UICorner")
-    antiRagdollCorner.CornerRadius = UDim.new(0, 6)
+    antiRagdollCorner.CornerRadius = UDim.new(0, 8)
     antiRagdollCorner.Parent = antiRagdollBtn
 
-    -- Botón configuración
-    local ConfigButton = Instance.new("TextButton")
-    ConfigButton.Size = UDim2.new(0, 22, 0, 18)
-    ConfigButton.Position = UDim2.new(1, -28, 0, 1)
-    ConfigButton.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    ConfigButton.Text = "⚙️"
-    ConfigButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ConfigButton.Font = Enum.Font.GothamBold
-    ConfigButton.TextSize = 12
-    ConfigButton.Parent = DragBar
+    -- Botón DAMAGE REPEATER
+    damageRepeaterBtn = Instance.new("TextButton")
+    damageRepeaterBtn.Size = UDim2.new(0.24, 0, 1, 0)
+    damageRepeaterBtn.Position = UDim2.new(0.75, 0, 0, 0)
+    damageRepeaterBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    damageRepeaterBtn.Text = "REP\nOFF"
+    damageRepeaterBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+    damageRepeaterBtn.Font = Enum.Font.GothamBold
+    damageRepeaterBtn.TextSize = 11
+    damageRepeaterBtn.TextWrapped = true
+    damageRepeaterBtn.Parent = ButtonsContainer
 
-    local configCorner = Instance.new("UICorner")
-    configCorner.CornerRadius = UDim.new(0, 5)
-    configCorner.Parent = ConfigButton
+    local damageRepeaterCorner = Instance.new("UICorner")
+    damageRepeaterCorner.CornerRadius = UDim.new(0, 8)
+    damageRepeaterCorner.Parent = damageRepeaterBtn
 
-    -- Arrastre
-    local dragging = false
-    local dragStart = nil
-    local startPos = nil
-    local dragConnection = nil
-    local dragEndConnection = nil
-    
-    DragBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = Frame.Position
-            
-            dragConnection = UserInputService.InputChanged:Connect(function(input)
-                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                    local delta = input.Position - dragStart
-                    Frame.Position = UDim2.new(
-                        startPos.X.Scale, startPos.X.Offset + delta.X,
-                        startPos.Y.Scale, startPos.Y.Offset + delta.Y
-                    )
-                end
-            end)
-            
-            dragEndConnection = UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragging = false
-                    if dragConnection then dragConnection:Disconnect() end
-                    if dragEndConnection then dragEndConnection:Disconnect() end
-                end
-            end)
-        end
-    end)
+    -- Hacer arrastrable usando la barra superior
+    MakeDraggableWithHandle(Frame, TopBar)
 
     return ScreenGui, Frame, ConfigButton
 end
@@ -562,8 +672,8 @@ local function CreateConfigInterface()
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 260, 0, 320)
-    Frame.Position = UDim2.new(0.5, -130, 0.5, -160)
+    Frame.Size = UDim2.new(0, 260, 0, 350)
+    Frame.Position = UDim2.new(0.5, -130, 0.5, -175)
     Frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     Frame.BorderSizePixel = 0
     Frame.ClipsDescendants = true
@@ -579,10 +689,10 @@ local function CreateConfigInterface()
     UIStroke.Transparency = 0.5
     UIStroke.Parent = Frame
 
-    -- Barra de título
+    -- Barra de título (MANEJADOR DE ARRASTRE)
     local TitleBar = Instance.new("Frame")
-    TitleBar.Size = UDim2.new(1, 0, 0, 28)
-    TitleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    TitleBar.Size = UDim2.new(1, 0, 0, 35)
+    TitleBar.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
     TitleBar.BackgroundTransparency = 0.1
     TitleBar.BorderSizePixel = 0
     TitleBar.Parent = Frame
@@ -593,9 +703,9 @@ local function CreateConfigInterface()
 
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(0.7, 0, 1, 0)
-    Title.Position = UDim2.new(0, 10, 0, 0)
+    Title.Position = UDim2.new(0, 12, 0, 0)
     Title.BackgroundTransparency = 1
-    Title.Text = "⚙️ CONFIG"
+    Title.Text = "⋮⋮ CONFIGURACIÓN ⋮⋮"
     Title.TextColor3 = Color3.fromRGB(255, 200, 100)
     Title.TextSize = 11
     Title.Font = Enum.Font.GothamBold
@@ -603,12 +713,12 @@ local function CreateConfigInterface()
     Title.Parent = TitleBar
 
     local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Size = UDim2.new(0, 22, 0, 22)
-    CloseBtn.Position = UDim2.new(1, -28, 0, 3)
+    CloseBtn.Size = UDim2.new(0, 28, 0, 28)
+    CloseBtn.Position = UDim2.new(1, -34, 0, 3.5)
     CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
     CloseBtn.Text = "✕"
     CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    CloseBtn.TextSize = 14
+    CloseBtn.TextSize = 16
     CloseBtn.Font = Enum.Font.GothamBold
     CloseBtn.Parent = TitleBar
 
@@ -618,8 +728,8 @@ local function CreateConfigInterface()
 
     -- Contenido
     local Content = Instance.new("Frame")
-    Content.Size = UDim2.new(1, 0, 1, -28)
-    Content.Position = UDim2.new(0, 0, 0, 28)
+    Content.Size = UDim2.new(1, 0, 1, -35)
+    Content.Position = UDim2.new(0, 0, 0, 35)
     Content.BackgroundTransparency = 1
     Content.Parent = Frame
 
@@ -651,7 +761,7 @@ local function CreateConfigInterface()
     sizeLabel.Parent = Content
 
     local hitboxSizeInput = Instance.new("TextBox")
-    hitboxSizeInput.Size = UDim2.new(0.35, 0, 0, 20)
+    hitboxSizeInput.Size = UDim2.new(0.35, 0, 0, 22)
     hitboxSizeInput.Position = UDim2.new(0.32, 0, yOffset, 0)
     hitboxSizeInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     hitboxSizeInput.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -662,7 +772,7 @@ local function CreateConfigInterface()
     hitboxSizeInput.Parent = Content
 
     local sizeInputCorner = Instance.new("UICorner")
-    sizeInputCorner.CornerRadius = UDim.new(0, 4)
+    sizeInputCorner.CornerRadius = UDim.new(0, 5)
     sizeInputCorner.Parent = hitboxSizeInput
 
     hitboxSizeLabel = Instance.new("TextLabel")
@@ -690,7 +800,7 @@ local function CreateConfigInterface()
     transLabel.Parent = Content
 
     local hitboxTransparencyInput = Instance.new("TextBox")
-    hitboxTransparencyInput.Size = UDim2.new(0.35, 0, 0, 20)
+    hitboxTransparencyInput.Size = UDim2.new(0.35, 0, 0, 22)
     hitboxTransparencyInput.Position = UDim2.new(0.32, 0, yOffset, 0)
     hitboxTransparencyInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     hitboxTransparencyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -701,7 +811,7 @@ local function CreateConfigInterface()
     hitboxTransparencyInput.Parent = Content
 
     local transInputCorner = Instance.new("UICorner")
-    transInputCorner.CornerRadius = UDim.new(0, 4)
+    transInputCorner.CornerRadius = UDim.new(0, 5)
     transInputCorner.Parent = hitboxTransparencyInput
 
     hitboxTransparencyLabel = Instance.new("TextLabel")
@@ -739,7 +849,7 @@ local function CreateConfigInterface()
     yOffset = yOffset + 0.055
 
     local wsContainer = Instance.new("Frame")
-    wsContainer.Size = UDim2.new(0.9, 0, 0, 28)
+    wsContainer.Size = UDim2.new(0.9, 0, 0, 30)
     wsContainer.Position = UDim2.new(0.05, 0, yOffset, 0)
     wsContainer.BackgroundTransparency = 1
     wsContainer.Parent = Content
@@ -756,7 +866,7 @@ local function CreateConfigInterface()
     walkSpeedBtn.Parent = wsContainer
 
     local wsBtnCorner = Instance.new("UICorner")
-    wsBtnCorner.CornerRadius = UDim.new(0, 5)
+    wsBtnCorner.CornerRadius = UDim.new(0, 6)
     wsBtnCorner.Parent = walkSpeedBtn
 
     local walkSpeedInput = Instance.new("TextBox")
@@ -773,7 +883,7 @@ local function CreateConfigInterface()
     local wsInputCorner = Instance.new("UICorner")
     wsInputCorner.CornerRadius = UDim.new(0, 5)
     wsInputCorner.Parent = walkSpeedInput
-    yOffset = yOffset + 0.065
+    yOffset = yOffset + 0.07
 
     walkSpeedValueLabel = Instance.new("TextLabel")
     walkSpeedValueLabel.Size = UDim2.new(0.9, 0, 0, 16)
@@ -821,7 +931,7 @@ local function CreateConfigInterface()
     tpLabel.Parent = Content
 
     local tpSpeedInput = Instance.new("TextBox")
-    tpSpeedInput.Size = UDim2.new(0.35, 0, 0, 20)
+    tpSpeedInput.Size = UDim2.new(0.35, 0, 0, 22)
     tpSpeedInput.Position = UDim2.new(0.32, 0, yOffset, 0)
     tpSpeedInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     tpSpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -832,7 +942,7 @@ local function CreateConfigInterface()
     tpSpeedInput.Parent = Content
 
     local tpInputCorner = Instance.new("UICorner")
-    tpInputCorner.CornerRadius = UDim.new(0, 4)
+    tpInputCorner.CornerRadius = UDim.new(0, 5)
     tpInputCorner.Parent = tpSpeedInput
 
     tpSpeedValueLabel = Instance.new("TextLabel")
@@ -856,6 +966,67 @@ local function CreateConfigInterface()
     sep3.Parent = Content
     yOffset = yOffset + 0.05
 
+    -- Sección DAMAGE REPEATER
+    local repeaterTitle = Instance.new("TextLabel")
+    repeaterTitle.Size = UDim2.new(0.9, 0, 0, 16)
+    repeaterTitle.Position = UDim2.new(0.05, 0, yOffset, 0)
+    repeaterTitle.BackgroundTransparency = 1
+    repeaterTitle.Text = "DAMAGE REPEATER"
+    repeaterTitle.TextColor3 = Color3.fromRGB(255, 200, 100)
+    repeaterTitle.Font = Enum.Font.GothamBold
+    repeaterTitle.TextSize = 10
+    repeaterTitle.TextXAlignment = Enum.TextXAlignment.Left
+    repeaterTitle.Parent = Content
+    yOffset = yOffset + 0.055
+
+    local repeatLabel = Instance.new("TextLabel")
+    repeatLabel.Size = UDim2.new(0.35, 0, 0, 20)
+    repeatLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
+    repeatLabel.BackgroundTransparency = 1
+    repeatLabel.Text = "Repeticiones:"
+    repeatLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    repeatLabel.Font = Enum.Font.Gotham
+    repeatLabel.TextSize = 9
+    repeatLabel.TextXAlignment = Enum.TextXAlignment.Left
+    repeatLabel.Parent = Content
+
+    repeatInput = Instance.new("TextBox")
+    repeatInput.Size = UDim2.new(0.35, 0, 0, 26)
+    repeatInput.Position = UDim2.new(0.45, 0, yOffset - 0.002, 0)
+    repeatInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    repeatInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    repeatInput.Font = Enum.Font.Gotham
+    repeatInput.TextSize = 10
+    repeatInput.PlaceholderText = "1-100"
+    repeatInput.Text = tostring(REPEAT_AMOUNT)
+    repeatInput.Parent = Content
+
+    local repeatInputCorner = Instance.new("UICorner")
+    repeatInputCorner.CornerRadius = UDim.new(0, 5)
+    repeatInputCorner.Parent = repeatInput
+    yOffset = yOffset + 0.07
+
+    repeatStatusLabel = Instance.new("TextLabel")
+    repeatStatusLabel.Size = UDim2.new(0.9, 0, 0, 16)
+    repeatStatusLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
+    repeatStatusLabel.BackgroundTransparency = 1
+    repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x"
+    repeatStatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    repeatStatusLabel.Font = Enum.Font.Gotham
+    repeatStatusLabel.TextSize = 8
+    repeatStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    repeatStatusLabel.Parent = Content
+    yOffset = yOffset + 0.05
+
+    -- Separador
+    local sep4 = Instance.new("Frame")
+    sep4.Size = UDim2.new(0.9, 0, 0, 1)
+    sep4.Position = UDim2.new(0.05, 0, yOffset, 0)
+    sep4.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    sep4.BorderSizePixel = 0
+    sep4.Parent = Content
+    yOffset = yOffset + 0.05
+
     -- Sección TARGET
     local targetTitle = Instance.new("TextLabel")
     targetTitle.Size = UDim2.new(0.9, 0, 0, 16)
@@ -870,7 +1041,7 @@ local function CreateConfigInterface()
     yOffset = yOffset + 0.055
 
     targetBox = Instance.new("TextBox")
-    targetBox.Size = UDim2.new(0.9, 0, 0, 24)
+    targetBox.Size = UDim2.new(0.9, 0, 0, 26)
     targetBox.Position = UDim2.new(0.05, 0, yOffset, 0)
     targetBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     targetBox.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -883,7 +1054,7 @@ local function CreateConfigInterface()
     local targetCorner = Instance.new("UICorner")
     targetCorner.CornerRadius = UDim.new(0, 5)
     targetCorner.Parent = targetBox
-    yOffset = yOffset + 0.065
+    yOffset = yOffset + 0.07
 
     targetStatus = Instance.new("TextLabel")
     targetStatus.Size = UDim2.new(0.9, 0, 0, 14)
@@ -911,7 +1082,7 @@ local function CreateConfigInterface()
 
     -- Botones
     local btnContainer = Instance.new("Frame")
-    btnContainer.Size = UDim2.new(0.9, 0, 0, 24)
+    btnContainer.Size = UDim2.new(0.9, 0, 0, 26)
     btnContainer.Position = UDim2.new(0.05, 0, yOffset, 0)
     btnContainer.BackgroundTransparency = 1
     btnContainer.Parent = Content
@@ -957,43 +1128,8 @@ local function CreateConfigInterface()
     infoLabel.TextXAlignment = Enum.TextXAlignment.Center
     infoLabel.Parent = Content
 
-    -- Sistema de arrastre
-    local dragging = false
-    local dragStart = nil
-    local startPos = nil
-    local dragConnection = nil
-    local dragEndConnection = nil
-    
-    TitleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            local target = UserInputService:GetMouseTarget()
-            if target and target == CloseBtn then
-                return
-            end
-            
-            dragging = true
-            dragStart = input.Position
-            startPos = Frame.Position
-            
-            dragConnection = UserInputService.InputChanged:Connect(function(input)
-                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                    local delta = input.Position - dragStart
-                    Frame.Position = UDim2.new(
-                        startPos.X.Scale, startPos.X.Offset + delta.X,
-                        startPos.Y.Scale, startPos.Y.Offset + delta.Y
-                    )
-                end
-            end)
-            
-            dragEndConnection = UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragging = false
-                    if dragConnection then dragConnection:Disconnect() end
-                    if dragEndConnection then dragEndConnection:Disconnect() end
-                end
-            end)
-        end
-    end)
+    -- Hacer arrastrable usando la barra de título
+    MakeDraggableWithHandle(Frame, TitleBar)
 
     return ScreenGui, Frame, CloseBtn
 end
@@ -1044,6 +1180,18 @@ local function updateWalkSpeedButton()
         walkSpeedBtn.Text = "LOOP\nOFF"
         walkSpeedBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
         walkSpeedBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    end
+end
+
+local function updateDamageRepeaterButton()
+    if damageRepeaterEnabled then
+        damageRepeaterBtn.Text = "REP\nON"
+        damageRepeaterBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
+        damageRepeaterBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
+    else
+        damageRepeaterBtn.Text = "REP\nOFF"
+        damageRepeaterBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+        damageRepeaterBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     end
 end
 
@@ -1170,6 +1318,11 @@ antiRagdollBtn.MouseButton1Click:Connect(function()
     updateAntiRagdollButton()
 end)
 
+damageRepeaterBtn.MouseButton1Click:Connect(function()
+    toggleDamageRepeater()
+    updateDamageRepeaterButton()
+end)
+
 configButton.MouseButton1Click:Connect(function()
     configGUI.Enabled = not configGUI.Enabled
 end)
@@ -1177,6 +1330,31 @@ end)
 closeConfigBtn.MouseButton1Click:Connect(function()
     configGUI.Enabled = false
 end)
+
+-- Evento para el input de repeticiones
+if repeatInput then
+    repeatInput.FocusLost:Connect(function()
+        local num = tonumber(repeatInput.Text)
+        if num and num >= 1 and num <= 100 then
+            REPEAT_AMOUNT = math.floor(num)
+            repeatInput.Text = tostring(REPEAT_AMOUNT)
+            if repeatStatusLabel then
+                repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x"
+                if damageRepeaterEnabled then
+                    repeatStatusLabel.TextColor3 = Color3.fromRGB(80, 255, 80)
+                else
+                    repeatStatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+                end
+            end
+            if damageRepeaterEnabled then
+                DisableDamageRepeater()
+                EnableDamageRepeater()
+            end
+        else
+            repeatInput.Text = tostring(REPEAT_AMOUNT)
+        end
+    end)
+end
 
 -- Eventos de configuración
 local function findTextBoxes()
@@ -1336,14 +1514,16 @@ updateHitboxButton()
 updateTPWalkButton()
 updateAntiRagdollButton()
 updateWalkSpeedButton()
+updateDamageRepeaterButton()
 setWalkSpeed(16)
 setTPSpeed(3)
 setHitboxSize(30)
 setHitboxTransparency(1)
 
-print("=== HITBOX EXPANDER + MOVEMENT + ANTI-RAGDOLL ===")
-print("✅ Panel de botones REDUCIDO (240x55)")
-print("✅ Botones con texto abreviado: HIT, TP, RAG")
-print("✅ Interfaz de configuración compacta (260x320)")
-print("✅ Arrastrable desde la barra superior")
-print("✅ Teclas: K=Mostrar | E=Hitbox | R=TP Walk")
+print("=== HITBOX EXPANDER + MOVEMENT + ANTI-RAGDOLL + DAMAGE REPEATER ===")
+print("✅ Arrastre funcionando - Toca y arrastra la BARRA SUPERIOR de cada ventana")
+print("✅ Barra superior con texto '⋮⋮ PANEL DE CONTROL ⋮⋮' y '⋮⋮ CONFIGURACIÓN ⋮⋮'")
+print("✅ Funciona con MOUSE (botón izquierdo) y TÁCTIL (dedo)")
+print("✅ Tecla K = Mostrar/Ocultar panel de botones")
+print("✅ Tecla E = Activar/Desactivar HITBOX")
+print("✅ Tecla R = Activar/Desactivar TP WALK")
