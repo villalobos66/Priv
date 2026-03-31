@@ -337,11 +337,11 @@ local function setWalkSpeedEnabled(enabled)
     
     if walkSpeedBtn then
         if enabled then
-            walkSpeedBtn.Text = "LOOP W\nON"
+            walkSpeedBtn.Text = "LOOP\nON"
             walkSpeedBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
             walkSpeedBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
         else
-            walkSpeedBtn.Text = "LOOP W\nOFF"
+            walkSpeedBtn.Text = "LOOP\nOFF"
             walkSpeedBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
             walkSpeedBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         end
@@ -385,18 +385,18 @@ local function setTPWalkEnabled(enabled)
     
     if tpWalkBtn then
         if enabled then
-            tpWalkBtn.Text = "TP WALK\nON"
+            tpWalkBtn.Text = "TP\nON"
             tpWalkBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
             tpWalkBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
         else
-            tpWalkBtn.Text = "TP WALK\nOFF"
+            tpWalkBtn.Text = "TP\nOFF"
             tpWalkBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
             tpWalkBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         end
     end
 end
 
--- ==================== INTERFAZ DE BOTONES PRINCIPALES ====================
+-- ==================== INTERFAZ DE BOTONES PRINCIPALES (REDUCIDA) ====================
 local function CreateButtonsInterface()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ButtonsGUI"
@@ -405,15 +405,15 @@ local function CreateButtonsInterface()
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 320, 0, 70)
-    Frame.Position = UDim2.new(0.5, -160, 0.02, 0)
+    Frame.Size = UDim2.new(0, 240, 0, 55)
+    Frame.Position = UDim2.new(0.5, -120, 0.02, 0)
     Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
     Frame.BackgroundTransparency = 0.05
     Frame.BorderSizePixel = 0
     Frame.Parent = ScreenGui
 
     local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 12)
+    UICorner.CornerRadius = UDim.new(0, 10)
     UICorner.Parent = Frame
 
     local UIStroke = Instance.new("UIStroke")
@@ -422,9 +422,9 @@ local function CreateButtonsInterface()
     UIStroke.Transparency = 0.5
     UIStroke.Parent = Frame
 
-    -- BARRA DE ARRASTRE VISIBLE
+    -- BARRA DE ARRASTRE
     local DragBar = Instance.new("Frame")
-    DragBar.Size = UDim2.new(1, 0, 0, 25)
+    DragBar.Size = UDim2.new(1, 0, 0, 20)
     DragBar.Position = UDim2.new(0, 0, 0, 0)
     DragBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     DragBar.BackgroundTransparency = 0.3
@@ -432,85 +432,91 @@ local function CreateButtonsInterface()
     DragBar.Parent = Frame
 
     local DragBarCorner = Instance.new("UICorner")
-    DragBarCorner.CornerRadius = UDim.new(0, 12)
+    DragBarCorner.CornerRadius = UDim.new(0, 10)
     DragBarCorner.Parent = DragBar
 
     local DragText = Instance.new("TextLabel")
     DragText.Size = UDim2.new(0.7, 0, 1, 0)
-    DragText.Position = UDim2.new(0, 12, 0, 0)
+    DragText.Position = UDim2.new(0, 8, 0, 0)
     DragText.BackgroundTransparency = 1
-    DragText.Text = "⋮⋮  PANEL DE CONTROL  ⋮⋮"
+    DragText.Text = "⋮⋮ PANEL ⋮⋮"
     DragText.TextColor3 = Color3.fromRGB(200, 200, 255)
-    DragText.TextSize = 11
+    DragText.TextSize = 9
     DragText.Font = Enum.Font.GothamBold
     DragText.TextXAlignment = Enum.TextXAlignment.Left
     DragText.Parent = DragBar
 
+    -- Contenedor de botones
     local ButtonsContainer = Instance.new("Frame")
-    ButtonsContainer.Size = UDim2.new(0.95, 0, 0.6, 0)
-    ButtonsContainer.Position = UDim2.new(0.025, 0, 0.4, 0)
+    ButtonsContainer.Size = UDim2.new(0.96, 0, 0.55, 0)
+    ButtonsContainer.Position = UDim2.new(0.02, 0, 0.4, 0)
     ButtonsContainer.BackgroundTransparency = 1
     ButtonsContainer.Parent = Frame
 
+    -- Botón HITBOX
     hitboxBtn = Instance.new("TextButton")
     hitboxBtn.Size = UDim2.new(0.32, 0, 1, 0)
     hitboxBtn.Position = UDim2.new(0, 0, 0, 0)
     hitboxBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    hitboxBtn.Text = "HITBOX\nOFF"
+    hitboxBtn.Text = "HIT\nOFF"
     hitboxBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     hitboxBtn.Font = Enum.Font.GothamBold
-    hitboxBtn.TextSize = 12
+    hitboxBtn.TextSize = 10
     hitboxBtn.TextWrapped = true
     hitboxBtn.Parent = ButtonsContainer
 
     local hitboxCorner = Instance.new("UICorner")
-    hitboxCorner.CornerRadius = UDim.new(0, 8)
+    hitboxCorner.CornerRadius = UDim.new(0, 6)
     hitboxCorner.Parent = hitboxBtn
 
+    -- Botón TP WALK
     tpWalkBtn = Instance.new("TextButton")
     tpWalkBtn.Size = UDim2.new(0.32, 0, 1, 0)
     tpWalkBtn.Position = UDim2.new(0.34, 0, 0, 0)
     tpWalkBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    tpWalkBtn.Text = "TP WALK\nOFF"
+    tpWalkBtn.Text = "TP\nOFF"
     tpWalkBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     tpWalkBtn.Font = Enum.Font.GothamBold
-    tpWalkBtn.TextSize = 12
+    tpWalkBtn.TextSize = 10
     tpWalkBtn.TextWrapped = true
     tpWalkBtn.Parent = ButtonsContainer
 
     local tpWalkCorner = Instance.new("UICorner")
-    tpWalkCorner.CornerRadius = UDim.new(0, 8)
+    tpWalkCorner.CornerRadius = UDim.new(0, 6)
     tpWalkCorner.Parent = tpWalkBtn
 
+    -- Botón ANTI-RAGDOLL
     antiRagdollBtn = Instance.new("TextButton")
     antiRagdollBtn.Size = UDim2.new(0.32, 0, 1, 0)
     antiRagdollBtn.Position = UDim2.new(0.68, 0, 0, 0)
     antiRagdollBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    antiRagdollBtn.Text = "ANTI-RAG\nOFF"
+    antiRagdollBtn.Text = "RAG\nOFF"
     antiRagdollBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     antiRagdollBtn.Font = Enum.Font.GothamBold
-    antiRagdollBtn.TextSize = 12
+    antiRagdollBtn.TextSize = 10
     antiRagdollBtn.TextWrapped = true
     antiRagdollBtn.Parent = ButtonsContainer
 
     local antiRagdollCorner = Instance.new("UICorner")
-    antiRagdollCorner.CornerRadius = UDim.new(0, 8)
+    antiRagdollCorner.CornerRadius = UDim.new(0, 6)
     antiRagdollCorner.Parent = antiRagdollBtn
 
+    -- Botón configuración
     local ConfigButton = Instance.new("TextButton")
-    ConfigButton.Size = UDim2.new(0, 30, 0, 25)
-    ConfigButton.Position = UDim2.new(1, -38, 0, 0)
+    ConfigButton.Size = UDim2.new(0, 22, 0, 18)
+    ConfigButton.Position = UDim2.new(1, -28, 0, 1)
     ConfigButton.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
     ConfigButton.Text = "⚙️"
     ConfigButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     ConfigButton.Font = Enum.Font.GothamBold
-    ConfigButton.TextSize = 16
+    ConfigButton.TextSize = 12
     ConfigButton.Parent = DragBar
 
     local configCorner = Instance.new("UICorner")
-    configCorner.CornerRadius = UDim.new(0, 6)
+    configCorner.CornerRadius = UDim.new(0, 5)
     configCorner.Parent = ConfigButton
 
+    -- Arrastre
     local dragging = false
     local dragStart = nil
     local startPos = nil
@@ -546,7 +552,7 @@ local function CreateButtonsInterface()
     return ScreenGui, Frame, ConfigButton
 end
 
--- ==================== INTERFAZ DE CONFIGURACIÓN (COMPACTA Y ORDENADA) ====================
+-- ==================== INTERFAZ DE CONFIGURACIÓN ====================
 local function CreateConfigInterface()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ConfigGUI"
@@ -589,7 +595,7 @@ local function CreateConfigInterface()
     Title.Size = UDim2.new(0.7, 0, 1, 0)
     Title.Position = UDim2.new(0, 10, 0, 0)
     Title.BackgroundTransparency = 1
-    Title.Text = "⚙️ CONFIGURACIÓN"
+    Title.Text = "⚙️ CONFIG"
     Title.TextColor3 = Color3.fromRGB(255, 200, 100)
     Title.TextSize = 11
     Title.Font = Enum.Font.GothamBold
@@ -732,7 +738,6 @@ local function CreateConfigInterface()
     wsTitle.Parent = Content
     yOffset = yOffset + 0.055
 
-    -- Botón y input juntos
     local wsContainer = Instance.new("Frame")
     wsContainer.Size = UDim2.new(0.9, 0, 0, 28)
     wsContainer.Position = UDim2.new(0.05, 0, yOffset, 0)
@@ -740,10 +745,10 @@ local function CreateConfigInterface()
     wsContainer.Parent = Content
 
     walkSpeedBtn = Instance.new("TextButton")
-    walkSpeedBtn.Size = UDim2.new(0.4, 0, 1, 0)
+    walkSpeedBtn.Size = UDim2.new(0.35, 0, 1, 0)
     walkSpeedBtn.Position = UDim2.new(0, 0, 0, 0)
     walkSpeedBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    walkSpeedBtn.Text = "LOOP W\nOFF"
+    walkSpeedBtn.Text = "LOOP\nOFF"
     walkSpeedBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     walkSpeedBtn.Font = Enum.Font.GothamBold
     walkSpeedBtn.TextSize = 9
@@ -756,7 +761,7 @@ local function CreateConfigInterface()
 
     local walkSpeedInput = Instance.new("TextBox")
     walkSpeedInput.Size = UDim2.new(0.55, 0, 1, 0)
-    walkSpeedInput.Position = UDim2.new(0.43, 0, 0, 0)
+    walkSpeedInput.Position = UDim2.new(0.38, 0, 0, 0)
     walkSpeedInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     walkSpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
     walkSpeedInput.Font = Enum.Font.Gotham
@@ -996,11 +1001,11 @@ end
 -- Funciones de actualización de botones
 local function updateHitboxButton()
     if HitboxEnabled then
-        hitboxBtn.Text = "HITBOX\nON"
+        hitboxBtn.Text = "HIT\nON"
         hitboxBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
         hitboxBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
     else
-        hitboxBtn.Text = "HITBOX\nOFF"
+        hitboxBtn.Text = "HIT\nOFF"
         hitboxBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
         hitboxBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     end
@@ -1008,11 +1013,11 @@ end
 
 local function updateTPWalkButton()
     if TPWalkEnabled then
-        tpWalkBtn.Text = "TP WALK\nON"
+        tpWalkBtn.Text = "TP\nON"
         tpWalkBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
         tpWalkBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
     else
-        tpWalkBtn.Text = "TP WALK\nOFF"
+        tpWalkBtn.Text = "TP\nOFF"
         tpWalkBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
         tpWalkBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     end
@@ -1020,11 +1025,11 @@ end
 
 local function updateAntiRagdollButton()
     if AntiRagdollEnabled then
-        antiRagdollBtn.Text = "ANTI-RAG\nON"
+        antiRagdollBtn.Text = "RAG\nON"
         antiRagdollBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
         antiRagdollBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
     else
-        antiRagdollBtn.Text = "ANTI-RAG\nOFF"
+        antiRagdollBtn.Text = "RAG\nOFF"
         antiRagdollBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
         antiRagdollBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     end
@@ -1032,11 +1037,11 @@ end
 
 local function updateWalkSpeedButton()
     if WalkSpeedEnabled then
-        walkSpeedBtn.Text = "LOOP W\nON"
+        walkSpeedBtn.Text = "LOOP\nON"
         walkSpeedBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
         walkSpeedBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
     else
-        walkSpeedBtn.Text = "LOOP W\nOFF"
+        walkSpeedBtn.Text = "LOOP\nOFF"
         walkSpeedBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
         walkSpeedBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     end
@@ -1337,8 +1342,8 @@ setHitboxSize(30)
 setHitboxTransparency(1)
 
 print("=== HITBOX EXPANDER + MOVEMENT + ANTI-RAGDOLL ===")
-print("✅ Interfaz de configuración COMPACTA (260x320)")
-print("✅ Todo organizado en secciones con etiquetas")
-print("✅ Cajas de texto y botones más pequeños")
+print("✅ Panel de botones REDUCIDO (240x55)")
+print("✅ Botones con texto abreviado: HIT, TP, RAG")
+print("✅ Interfaz de configuración compacta (260x320)")
 print("✅ Arrastrable desde la barra superior")
 print("✅ Teclas: K=Mostrar | E=Hitbox | R=TP Walk")
