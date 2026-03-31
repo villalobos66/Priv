@@ -257,7 +257,7 @@ end
 local function setHitboxSize(value)
     HITBOX_SIZE = tonumber(value)
     if hitboxSizeLabel then
-        hitboxSizeLabel.Text = "Tamano: " .. HITBOX_SIZE
+        hitboxSizeLabel.Text = "Tamaño: " .. HITBOX_SIZE
     end
     if HitboxEnabled then
         updateHitboxes()
@@ -337,11 +337,11 @@ local function setWalkSpeedEnabled(enabled)
     
     if walkSpeedBtn then
         if enabled then
-            walkSpeedBtn.Text = "LOOP WALKSPEED: ON"
+            walkSpeedBtn.Text = "LOOP W\nON"
             walkSpeedBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
             walkSpeedBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
         else
-            walkSpeedBtn.Text = "LOOP WALKSPEED: OFF"
+            walkSpeedBtn.Text = "LOOP W\nOFF"
             walkSpeedBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
             walkSpeedBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         end
@@ -435,7 +435,6 @@ local function CreateButtonsInterface()
     DragBarCorner.CornerRadius = UDim.new(0, 12)
     DragBarCorner.Parent = DragBar
 
-    -- Texto en la barra de arrastre
     local DragText = Instance.new("TextLabel")
     DragText.Size = UDim2.new(0.7, 0, 1, 0)
     DragText.Position = UDim2.new(0, 12, 0, 0)
@@ -447,14 +446,12 @@ local function CreateButtonsInterface()
     DragText.TextXAlignment = Enum.TextXAlignment.Left
     DragText.Parent = DragBar
 
-    -- Contenedor de botones (debajo de la barra de arrastre)
     local ButtonsContainer = Instance.new("Frame")
     ButtonsContainer.Size = UDim2.new(0.95, 0, 0.6, 0)
     ButtonsContainer.Position = UDim2.new(0.025, 0, 0.4, 0)
     ButtonsContainer.BackgroundTransparency = 1
     ButtonsContainer.Parent = Frame
 
-    -- Botón HITBOX
     hitboxBtn = Instance.new("TextButton")
     hitboxBtn.Size = UDim2.new(0.32, 0, 1, 0)
     hitboxBtn.Position = UDim2.new(0, 0, 0, 0)
@@ -470,7 +467,6 @@ local function CreateButtonsInterface()
     hitboxCorner.CornerRadius = UDim.new(0, 8)
     hitboxCorner.Parent = hitboxBtn
 
-    -- Botón TP WALK
     tpWalkBtn = Instance.new("TextButton")
     tpWalkBtn.Size = UDim2.new(0.32, 0, 1, 0)
     tpWalkBtn.Position = UDim2.new(0.34, 0, 0, 0)
@@ -486,7 +482,6 @@ local function CreateButtonsInterface()
     tpWalkCorner.CornerRadius = UDim.new(0, 8)
     tpWalkCorner.Parent = tpWalkBtn
 
-    -- Botón ANTI-RAGDOLL
     antiRagdollBtn = Instance.new("TextButton")
     antiRagdollBtn.Size = UDim2.new(0.32, 0, 1, 0)
     antiRagdollBtn.Position = UDim2.new(0.68, 0, 0, 0)
@@ -502,7 +497,6 @@ local function CreateButtonsInterface()
     antiRagdollCorner.CornerRadius = UDim.new(0, 8)
     antiRagdollCorner.Parent = antiRagdollBtn
 
-    -- Botón para abrir configuración
     local ConfigButton = Instance.new("TextButton")
     ConfigButton.Size = UDim2.new(0, 30, 0, 25)
     ConfigButton.Position = UDim2.new(1, -38, 0, 0)
@@ -517,7 +511,6 @@ local function CreateButtonsInterface()
     configCorner.CornerRadius = UDim.new(0, 6)
     configCorner.Parent = ConfigButton
 
-    -- Sistema de arrastre para la barra de botones
     local dragging = false
     local dragStart = nil
     local startPos = nil
@@ -553,7 +546,7 @@ local function CreateButtonsInterface()
     return ScreenGui, Frame, ConfigButton
 end
 
--- ==================== INTERFAZ DE CONFIGURACIÓN ====================
+-- ==================== INTERFAZ DE CONFIGURACIÓN (COMPACTA Y ORDENADA) ====================
 local function CreateConfigInterface()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ConfigGUI"
@@ -563,8 +556,8 @@ local function CreateConfigInterface()
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 350, 0, 520)
-    Frame.Position = UDim2.new(0.5, -175, 0.5, -260)
+    Frame.Size = UDim2.new(0, 260, 0, 320)
+    Frame.Position = UDim2.new(0.5, -130, 0.5, -160)
     Frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     Frame.BorderSizePixel = 0
     Frame.ClipsDescendants = true
@@ -576,13 +569,13 @@ local function CreateConfigInterface()
 
     local UIStroke = Instance.new("UIStroke")
     UIStroke.Color = Color3.fromRGB(100, 100, 255)
-    UIStroke.Thickness = 2
+    UIStroke.Thickness = 1.5
     UIStroke.Transparency = 0.5
     UIStroke.Parent = Frame
 
-    -- Barra de título (arrastrable)
+    -- Barra de título
     local TitleBar = Instance.new("Frame")
-    TitleBar.Size = UDim2.new(1, 0, 0, 35)
+    TitleBar.Size = UDim2.new(1, 0, 0, 28)
     TitleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     TitleBar.BackgroundTransparency = 0.1
     TitleBar.BorderSizePixel = 0
@@ -594,296 +587,330 @@ local function CreateConfigInterface()
 
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(0.7, 0, 1, 0)
-    Title.Position = UDim2.new(0, 12, 0, 0)
+    Title.Position = UDim2.new(0, 10, 0, 0)
     Title.BackgroundTransparency = 1
-    Title.Text = "⋮⋮  CONFIGURACIÓN  ⋮⋮"
+    Title.Text = "⚙️ CONFIGURACIÓN"
     Title.TextColor3 = Color3.fromRGB(255, 200, 100)
-    Title.TextSize = 13
+    Title.TextSize = 11
     Title.Font = Enum.Font.GothamBold
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.Parent = TitleBar
 
     local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-    CloseBtn.Position = UDim2.new(1, -38, 0, 2.5)
+    CloseBtn.Size = UDim2.new(0, 22, 0, 22)
+    CloseBtn.Position = UDim2.new(1, -28, 0, 3)
     CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
     CloseBtn.Text = "✕"
     CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    CloseBtn.TextSize = 18
+    CloseBtn.TextSize = 14
     CloseBtn.Font = Enum.Font.GothamBold
     CloseBtn.Parent = TitleBar
 
     local CloseCorner = Instance.new("UICorner")
-    CloseCorner.CornerRadius = UDim.new(0, 8)
+    CloseCorner.CornerRadius = UDim.new(0, 6)
     CloseCorner.Parent = CloseBtn
 
     -- Contenido
     local Content = Instance.new("Frame")
-    Content.Size = UDim2.new(1, 0, 1, -35)
-    Content.Position = UDim2.new(0, 0, 0, 35)
+    Content.Size = UDim2.new(1, 0, 1, -28)
+    Content.Position = UDim2.new(0, 0, 0, 28)
     Content.BackgroundTransparency = 1
     Content.Parent = Frame
 
-    -- Sección HITBOX CONFIG
-    local hitboxConfigSection = Instance.new("TextLabel")
-    hitboxConfigSection.Size = UDim2.new(0.85, 0, 0, 20)
-    hitboxConfigSection.Position = UDim2.new(0.075, 0, 0.02, 0)
-    hitboxConfigSection.BackgroundTransparency = 1
-    hitboxConfigSection.Text = "----- CONFIGURACIÓN HITBOX -----"
-    hitboxConfigSection.TextColor3 = Color3.fromRGB(255, 200, 100)
-    hitboxConfigSection.Font = Enum.Font.GothamBold
-    hitboxConfigSection.TextSize = 11
-    hitboxConfigSection.TextXAlignment = Enum.TextXAlignment.Center
-    hitboxConfigSection.Parent = Content
+    local yOffset = 0.05
 
-    -- Input para tamaño del hitbox
+    -- Sección HITBOX
+    local hitboxTitle = Instance.new("TextLabel")
+    hitboxTitle.Size = UDim2.new(0.9, 0, 0, 16)
+    hitboxTitle.Position = UDim2.new(0.05, 0, yOffset, 0)
+    hitboxTitle.BackgroundTransparency = 1
+    hitboxTitle.Text = "HITBOX"
+    hitboxTitle.TextColor3 = Color3.fromRGB(255, 200, 100)
+    hitboxTitle.Font = Enum.Font.GothamBold
+    hitboxTitle.TextSize = 10
+    hitboxTitle.TextXAlignment = Enum.TextXAlignment.Left
+    hitboxTitle.Parent = Content
+    yOffset = yOffset + 0.055
+
+    -- Tamaño
+    local sizeLabel = Instance.new("TextLabel")
+    sizeLabel.Size = UDim2.new(0.25, 0, 0, 20)
+    sizeLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
+    sizeLabel.BackgroundTransparency = 1
+    sizeLabel.Text = "Tamaño:"
+    sizeLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    sizeLabel.Font = Enum.Font.Gotham
+    sizeLabel.TextSize = 9
+    sizeLabel.TextXAlignment = Enum.TextXAlignment.Left
+    sizeLabel.Parent = Content
+
     local hitboxSizeInput = Instance.new("TextBox")
-    hitboxSizeInput.Size = UDim2.new(0.4, 0, 0, 28)
-    hitboxSizeInput.Position = UDim2.new(0.075, 0, 0.07, 0)
+    hitboxSizeInput.Size = UDim2.new(0.35, 0, 0, 20)
+    hitboxSizeInput.Position = UDim2.new(0.32, 0, yOffset, 0)
     hitboxSizeInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     hitboxSizeInput.TextColor3 = Color3.fromRGB(255, 255, 255)
     hitboxSizeInput.Font = Enum.Font.Gotham
-    hitboxSizeInput.TextSize = 11
-    hitboxSizeInput.PlaceholderText = "Tamano (0.1-100)"
+    hitboxSizeInput.TextSize = 9
+    hitboxSizeInput.PlaceholderText = "0.1-100"
     hitboxSizeInput.Text = "30"
     hitboxSizeInput.Parent = Content
 
     local sizeInputCorner = Instance.new("UICorner")
-    sizeInputCorner.CornerRadius = UDim.new(0, 6)
+    sizeInputCorner.CornerRadius = UDim.new(0, 4)
     sizeInputCorner.Parent = hitboxSizeInput
 
     hitboxSizeLabel = Instance.new("TextLabel")
-    hitboxSizeLabel.Size = UDim2.new(0.4, 0, 0, 20)
-    hitboxSizeLabel.Position = UDim2.new(0.52, 0, 0.072, 0)
+    hitboxSizeLabel.Size = UDim2.new(0.25, 0, 0, 20)
+    hitboxSizeLabel.Position = UDim2.new(0.7, 0, yOffset, 0)
     hitboxSizeLabel.BackgroundTransparency = 1
-    hitboxSizeLabel.Text = "Tamano: 30"
+    hitboxSizeLabel.Text = "Tam: 30"
     hitboxSizeLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     hitboxSizeLabel.Font = Enum.Font.Gotham
-    hitboxSizeLabel.TextSize = 10
+    hitboxSizeLabel.TextSize = 9
     hitboxSizeLabel.TextXAlignment = Enum.TextXAlignment.Left
     hitboxSizeLabel.Parent = Content
+    yOffset = yOffset + 0.055
 
-    -- Input para transparencia del hitbox
+    -- Transparencia
+    local transLabel = Instance.new("TextLabel")
+    transLabel.Size = UDim2.new(0.25, 0, 0, 20)
+    transLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
+    transLabel.BackgroundTransparency = 1
+    transLabel.Text = "Transparencia:"
+    transLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    transLabel.Font = Enum.Font.Gotham
+    transLabel.TextSize = 9
+    transLabel.TextXAlignment = Enum.TextXAlignment.Left
+    transLabel.Parent = Content
+
     local hitboxTransparencyInput = Instance.new("TextBox")
-    hitboxTransparencyInput.Size = UDim2.new(0.4, 0, 0, 28)
-    hitboxTransparencyInput.Position = UDim2.new(0.075, 0, 0.12, 0)
+    hitboxTransparencyInput.Size = UDim2.new(0.35, 0, 0, 20)
+    hitboxTransparencyInput.Position = UDim2.new(0.32, 0, yOffset, 0)
     hitboxTransparencyInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     hitboxTransparencyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
     hitboxTransparencyInput.Font = Enum.Font.Gotham
-    hitboxTransparencyInput.TextSize = 11
-    hitboxTransparencyInput.PlaceholderText = "Transparencia (0-1)"
+    hitboxTransparencyInput.TextSize = 9
+    hitboxTransparencyInput.PlaceholderText = "0-1"
     hitboxTransparencyInput.Text = "1"
     hitboxTransparencyInput.Parent = Content
 
     local transInputCorner = Instance.new("UICorner")
-    transInputCorner.CornerRadius = UDim.new(0, 6)
+    transInputCorner.CornerRadius = UDim.new(0, 4)
     transInputCorner.Parent = hitboxTransparencyInput
 
     hitboxTransparencyLabel = Instance.new("TextLabel")
-    hitboxTransparencyLabel.Size = UDim2.new(0.4, 0, 0, 20)
-    hitboxTransparencyLabel.Position = UDim2.new(0.52, 0, 0.122, 0)
+    hitboxTransparencyLabel.Size = UDim2.new(0.25, 0, 0, 20)
+    hitboxTransparencyLabel.Position = UDim2.new(0.7, 0, yOffset, 0)
     hitboxTransparencyLabel.BackgroundTransparency = 1
-    hitboxTransparencyLabel.Text = "Transparencia: 1"
+    hitboxTransparencyLabel.Text = "Trans: 1"
     hitboxTransparencyLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     hitboxTransparencyLabel.Font = Enum.Font.Gotham
-    hitboxTransparencyLabel.TextSize = 10
+    hitboxTransparencyLabel.TextSize = 9
     hitboxTransparencyLabel.TextXAlignment = Enum.TextXAlignment.Left
     hitboxTransparencyLabel.Parent = Content
+    yOffset = yOffset + 0.06
 
     -- Separador
-    local separator1 = Instance.new("Frame")
-    separator1.Size = UDim2.new(0.85, 0, 0, 1)
-    separator1.Position = UDim2.new(0.075, 0, 0.17, 0)
-    separator1.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    separator1.BorderSizePixel = 0
-    separator1.Parent = Content
+    local sep1 = Instance.new("Frame")
+    sep1.Size = UDim2.new(0.9, 0, 0, 1)
+    sep1.Position = UDim2.new(0.05, 0, yOffset, 0)
+    sep1.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    sep1.BorderSizePixel = 0
+    sep1.Parent = Content
+    yOffset = yOffset + 0.05
 
-    -- Sección LOOP WALKSPEED (rediseñada)
-    local walkSpeedSection = Instance.new("TextLabel")
-    walkSpeedSection.Size = UDim2.new(0.85, 0, 0, 20)
-    walkSpeedSection.Position = UDim2.new(0.075, 0, 0.19, 0)
-    walkSpeedSection.BackgroundTransparency = 1
-    walkSpeedSection.Text = "----- LOOP WALKSPEED -----"
-    walkSpeedSection.TextColor3 = Color3.fromRGB(255, 200, 100)
-    walkSpeedSection.Font = Enum.Font.GothamBold
-    walkSpeedSection.TextSize = 11
-    walkSpeedSection.TextXAlignment = Enum.TextXAlignment.Center
-    walkSpeedSection.Parent = Content
+    -- Sección LOOP WALKSPEED
+    local wsTitle = Instance.new("TextLabel")
+    wsTitle.Size = UDim2.new(0.9, 0, 0, 16)
+    wsTitle.Position = UDim2.new(0.05, 0, yOffset, 0)
+    wsTitle.BackgroundTransparency = 1
+    wsTitle.Text = "LOOP WALKSPEED"
+    wsTitle.TextColor3 = Color3.fromRGB(255, 200, 100)
+    wsTitle.Font = Enum.Font.GothamBold
+    wsTitle.TextSize = 10
+    wsTitle.TextXAlignment = Enum.TextXAlignment.Left
+    wsTitle.Parent = Content
+    yOffset = yOffset + 0.055
 
-    -- Contenedor para botón y input de WalkSpeed (lado a lado)
-    local walkSpeedContainer = Instance.new("Frame")
-    walkSpeedContainer.Size = UDim2.new(0.85, 0, 0, 35)
-    walkSpeedContainer.Position = UDim2.new(0.075, 0, 0.23, 0)
-    walkSpeedContainer.BackgroundTransparency = 1
-    walkSpeedContainer.Parent = Content
+    -- Botón y input juntos
+    local wsContainer = Instance.new("Frame")
+    wsContainer.Size = UDim2.new(0.9, 0, 0, 28)
+    wsContainer.Position = UDim2.new(0.05, 0, yOffset, 0)
+    wsContainer.BackgroundTransparency = 1
+    wsContainer.Parent = Content
 
-    -- Botón Loop WalkSpeed (más pequeño, solo dice "LOOP W")
     walkSpeedBtn = Instance.new("TextButton")
-    walkSpeedBtn.Size = UDim2.new(0.3, 0, 1, 0)
+    walkSpeedBtn.Size = UDim2.new(0.4, 0, 1, 0)
     walkSpeedBtn.Position = UDim2.new(0, 0, 0, 0)
     walkSpeedBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     walkSpeedBtn.Text = "LOOP W\nOFF"
     walkSpeedBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     walkSpeedBtn.Font = Enum.Font.GothamBold
-    walkSpeedBtn.TextSize = 11
+    walkSpeedBtn.TextSize = 9
     walkSpeedBtn.TextWrapped = true
-    walkSpeedBtn.Parent = walkSpeedContainer
+    walkSpeedBtn.Parent = wsContainer
 
-    local walkSpeedCorner = Instance.new("UICorner")
-    walkSpeedCorner.CornerRadius = UDim.new(0, 8)
-    walkSpeedCorner.Parent = walkSpeedBtn
+    local wsBtnCorner = Instance.new("UICorner")
+    wsBtnCorner.CornerRadius = UDim.new(0, 5)
+    wsBtnCorner.Parent = walkSpeedBtn
 
-    -- Input para WalkSpeed
     local walkSpeedInput = Instance.new("TextBox")
-    walkSpeedInput.Size = UDim2.new(0.45, 0, 1, 0)
-    walkSpeedInput.Position = UDim2.new(0.32, 0, 0, 0)
+    walkSpeedInput.Size = UDim2.new(0.55, 0, 1, 0)
+    walkSpeedInput.Position = UDim2.new(0.43, 0, 0, 0)
     walkSpeedInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     walkSpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
     walkSpeedInput.Font = Enum.Font.Gotham
-    walkSpeedInput.TextSize = 11
-    walkSpeedInput.PlaceholderText = "Velocidad (0.1-500)"
+    walkSpeedInput.TextSize = 9
+    walkSpeedInput.PlaceholderText = "Velocidad"
     walkSpeedInput.Text = "16"
-    walkSpeedInput.Parent = walkSpeedContainer
+    walkSpeedInput.Parent = wsContainer
 
     local wsInputCorner = Instance.new("UICorner")
-    wsInputCorner.CornerRadius = UDim.new(0, 6)
+    wsInputCorner.CornerRadius = UDim.new(0, 5)
     wsInputCorner.Parent = walkSpeedInput
+    yOffset = yOffset + 0.065
 
-    -- Label de velocidad actual
     walkSpeedValueLabel = Instance.new("TextLabel")
-    walkSpeedValueLabel.Size = UDim2.new(0.4, 0, 0, 18)
-    walkSpeedValueLabel.Position = UDim2.new(0.52, 0, 0.28, 0)
+    walkSpeedValueLabel.Size = UDim2.new(0.9, 0, 0, 16)
+    walkSpeedValueLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
     walkSpeedValueLabel.BackgroundTransparency = 1
-    walkSpeedValueLabel.Text = "Velocidad actual: 16"
+    walkSpeedValueLabel.Text = "Vel actual: 16"
     walkSpeedValueLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     walkSpeedValueLabel.Font = Enum.Font.Gotham
-    walkSpeedValueLabel.TextSize = 10
+    walkSpeedValueLabel.TextSize = 8
     walkSpeedValueLabel.TextXAlignment = Enum.TextXAlignment.Left
     walkSpeedValueLabel.Parent = Content
+    yOffset = yOffset + 0.05
 
     -- Separador
-    local separator2 = Instance.new("Frame")
-    separator2.Size = UDim2.new(0.85, 0, 0, 1)
-    separator2.Position = UDim2.new(0.075, 0, 0.34, 0)
-    separator2.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    separator2.BorderSizePixel = 0
-    separator2.Parent = Content
+    local sep2 = Instance.new("Frame")
+    sep2.Size = UDim2.new(0.9, 0, 0, 1)
+    sep2.Position = UDim2.new(0.05, 0, yOffset, 0)
+    sep2.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    sep2.BorderSizePixel = 0
+    sep2.Parent = Content
+    yOffset = yOffset + 0.05
 
-    -- Sección TP WALK CONFIG
-    local tpSection = Instance.new("TextLabel")
-    tpSection.Size = UDim2.new(0.85, 0, 0, 20)
-    tpSection.Position = UDim2.new(0.075, 0, 0.36, 0)
-    tpSection.BackgroundTransparency = 1
-    tpSection.Text = "----- CONFIGURACIÓN TP WALK -----"
-    tpSection.TextColor3 = Color3.fromRGB(255, 200, 100)
-    tpSection.Font = Enum.Font.GothamBold
-    tpSection.TextSize = 11
-    tpSection.TextXAlignment = Enum.TextXAlignment.Center
-    tpSection.Parent = Content
+    -- Sección TP WALK
+    local tpTitle = Instance.new("TextLabel")
+    tpTitle.Size = UDim2.new(0.9, 0, 0, 16)
+    tpTitle.Position = UDim2.new(0.05, 0, yOffset, 0)
+    tpTitle.BackgroundTransparency = 1
+    tpTitle.Text = "TP WALK"
+    tpTitle.TextColor3 = Color3.fromRGB(255, 200, 100)
+    tpTitle.Font = Enum.Font.GothamBold
+    tpTitle.TextSize = 10
+    tpTitle.TextXAlignment = Enum.TextXAlignment.Left
+    tpTitle.Parent = Content
+    yOffset = yOffset + 0.055
 
-    -- Contenedor para input de TP Speed
-    local tpContainer = Instance.new("Frame")
-    tpContainer.Size = UDim2.new(0.85, 0, 0, 28)
-    tpContainer.Position = UDim2.new(0.075, 0, 0.4, 0)
-    tpContainer.BackgroundTransparency = 1
-    tpContainer.Parent = Content
+    local tpLabel = Instance.new("TextLabel")
+    tpLabel.Size = UDim2.new(0.25, 0, 0, 20)
+    tpLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
+    tpLabel.BackgroundTransparency = 1
+    tpLabel.Text = "Velocidad TP:"
+    tpLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    tpLabel.Font = Enum.Font.Gotham
+    tpLabel.TextSize = 9
+    tpLabel.TextXAlignment = Enum.TextXAlignment.Left
+    tpLabel.Parent = Content
 
-    -- Input para TP Speed
     local tpSpeedInput = Instance.new("TextBox")
-    tpSpeedInput.Size = UDim2.new(0.45, 0, 1, 0)
-    tpSpeedInput.Position = UDim2.new(0, 0, 0, 0)
+    tpSpeedInput.Size = UDim2.new(0.35, 0, 0, 20)
+    tpSpeedInput.Position = UDim2.new(0.32, 0, yOffset, 0)
     tpSpeedInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     tpSpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
     tpSpeedInput.Font = Enum.Font.Gotham
-    tpSpeedInput.TextSize = 11
-    tpSpeedInput.PlaceholderText = "Velocidad TP (0.01-50)"
+    tpSpeedInput.TextSize = 9
+    tpSpeedInput.PlaceholderText = "0.01-50"
     tpSpeedInput.Text = "3"
-    tpSpeedInput.Parent = tpContainer
+    tpSpeedInput.Parent = Content
 
     local tpInputCorner = Instance.new("UICorner")
-    tpInputCorner.CornerRadius = UDim.new(0, 6)
+    tpInputCorner.CornerRadius = UDim.new(0, 4)
     tpInputCorner.Parent = tpSpeedInput
 
     tpSpeedValueLabel = Instance.new("TextLabel")
-    tpSpeedValueLabel.Size = UDim2.new(0.4, 0, 0, 18)
-    tpSpeedValueLabel.Position = UDim2.new(0.52, 0, 0.405, 0)
+    tpSpeedValueLabel.Size = UDim2.new(0.25, 0, 0, 20)
+    tpSpeedValueLabel.Position = UDim2.new(0.7, 0, yOffset, 0)
     tpSpeedValueLabel.BackgroundTransparency = 1
-    tpSpeedValueLabel.Text = "Velocidad TP: 3"
+    tpSpeedValueLabel.Text = "Vel TP: 3"
     tpSpeedValueLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     tpSpeedValueLabel.Font = Enum.Font.Gotham
-    tpSpeedValueLabel.TextSize = 10
+    tpSpeedValueLabel.TextSize = 9
     tpSpeedValueLabel.TextXAlignment = Enum.TextXAlignment.Left
     tpSpeedValueLabel.Parent = Content
+    yOffset = yOffset + 0.06
 
     -- Separador
-    local separator3 = Instance.new("Frame")
-    separator3.Size = UDim2.new(0.85, 0, 0, 1)
-    separator3.Position = UDim2.new(0.075, 0, 0.445, 0)
-    separator3.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    separator3.BorderSizePixel = 0
-    separator3.Parent = Content
+    local sep3 = Instance.new("Frame")
+    sep3.Size = UDim2.new(0.9, 0, 0, 1)
+    sep3.Position = UDim2.new(0.05, 0, yOffset, 0)
+    sep3.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    sep3.BorderSizePixel = 0
+    sep3.Parent = Content
+    yOffset = yOffset + 0.05
 
     -- Sección TARGET
-    local targetSection = Instance.new("TextLabel")
-    targetSection.Size = UDim2.new(0.85, 0, 0, 20)
-    targetSection.Position = UDim2.new(0.075, 0, 0.465, 0)
-    targetSection.BackgroundTransparency = 1
-    targetSection.Text = "----- SISTEMA TARGET -----"
-    targetSection.TextColor3 = Color3.fromRGB(255, 200, 100)
-    targetSection.Font = Enum.Font.GothamBold
-    targetSection.TextSize = 11
-    targetSection.TextXAlignment = Enum.TextXAlignment.Center
-    targetSection.Parent = Content
+    local targetTitle = Instance.new("TextLabel")
+    targetTitle.Size = UDim2.new(0.9, 0, 0, 16)
+    targetTitle.Position = UDim2.new(0.05, 0, yOffset, 0)
+    targetTitle.BackgroundTransparency = 1
+    targetTitle.Text = "TARGET"
+    targetTitle.TextColor3 = Color3.fromRGB(255, 200, 100)
+    targetTitle.Font = Enum.Font.GothamBold
+    targetTitle.TextSize = 10
+    targetTitle.TextXAlignment = Enum.TextXAlignment.Left
+    targetTitle.Parent = Content
+    yOffset = yOffset + 0.055
 
-    -- Campo de busqueda
     targetBox = Instance.new("TextBox")
-    targetBox.Size = UDim2.new(0.85, 0, 0, 30)
-    targetBox.Position = UDim2.new(0.075, 0, 0.505, 0)
+    targetBox.Size = UDim2.new(0.9, 0, 0, 24)
+    targetBox.Position = UDim2.new(0.05, 0, yOffset, 0)
     targetBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     targetBox.TextColor3 = Color3.fromRGB(255, 255, 255)
     targetBox.Font = Enum.Font.Gotham
-    targetBox.TextSize = 12
-    targetBox.PlaceholderText = "Escribe 3+ letras para buscar"
+    targetBox.TextSize = 10
+    targetBox.PlaceholderText = "Nombre (3+ letras)"
     targetBox.Text = ""
     targetBox.Parent = Content
 
     local targetCorner = Instance.new("UICorner")
-    targetCorner.CornerRadius = UDim.new(0, 6)
+    targetCorner.CornerRadius = UDim.new(0, 5)
     targetCorner.Parent = targetBox
+    yOffset = yOffset + 0.065
 
-    -- Estado del target
     targetStatus = Instance.new("TextLabel")
-    targetStatus.Size = UDim2.new(0.85, 0, 0, 18)
-    targetStatus.Position = UDim2.new(0.075, 0, 0.56, 0)
+    targetStatus.Size = UDim2.new(0.9, 0, 0, 14)
+    targetStatus.Position = UDim2.new(0.05, 0, yOffset, 0)
     targetStatus.BackgroundTransparency = 1
-    targetStatus.Text = "Objetivo actual: TODOS"
+    targetStatus.Text = "Objetivo: TODOS"
     targetStatus.TextColor3 = Color3.fromRGB(120, 200, 255)
     targetStatus.Font = Enum.Font.Gotham
-    targetStatus.TextSize = 10
+    targetStatus.TextSize = 8
     targetStatus.TextXAlignment = Enum.TextXAlignment.Left
     targetStatus.Parent = Content
+    yOffset = yOffset + 0.045
 
-    -- Mensaje de resultado
     searchResult = Instance.new("TextLabel")
-    searchResult.Size = UDim2.new(0.85, 0, 0, 18)
-    searchResult.Position = UDim2.new(0.075, 0, 0.6, 0)
+    searchResult.Size = UDim2.new(0.9, 0, 0, 14)
+    searchResult.Position = UDim2.new(0.05, 0, yOffset, 0)
     searchResult.BackgroundTransparency = 1
-    searchResult.Text = "Presiona Enter para buscar"
+    searchResult.Text = "Presiona Enter"
     searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
     searchResult.Font = Enum.Font.Gotham
-    searchResult.TextSize = 9
+    searchResult.TextSize = 8
     searchResult.TextXAlignment = Enum.TextXAlignment.Left
-    searchResult.TextWrapped = true
     searchResult.Parent = Content
+    yOffset = yOffset + 0.05
 
-    -- Botones horizontales
-    local buttonContainer = Instance.new("Frame")
-    buttonContainer.Size = UDim2.new(0.85, 0, 0, 30)
-    buttonContainer.Position = UDim2.new(0.075, 0, 0.64, 0)
-    buttonContainer.BackgroundTransparency = 1
-    buttonContainer.Parent = Content
+    -- Botones
+    local btnContainer = Instance.new("Frame")
+    btnContainer.Size = UDim2.new(0.9, 0, 0, 24)
+    btnContainer.Position = UDim2.new(0.05, 0, yOffset, 0)
+    btnContainer.BackgroundTransparency = 1
+    btnContainer.Parent = Content
 
-    -- Boton Limpiar Target
     clearTargetBtn = Instance.new("TextButton")
     clearTargetBtn.Size = UDim2.new(0.48, 0, 1, 0)
     clearTargetBtn.Position = UDim2.new(0, 0, 0, 0)
@@ -891,41 +918,41 @@ local function CreateConfigInterface()
     clearTargetBtn.Text = "Limpiar"
     clearTargetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     clearTargetBtn.Font = Enum.Font.GothamBold
-    clearTargetBtn.TextSize = 11
-    clearTargetBtn.Parent = buttonContainer
+    clearTargetBtn.TextSize = 9
+    clearTargetBtn.Parent = btnContainer
 
     local clearCorner = Instance.new("UICorner")
-    clearCorner.CornerRadius = UDim.new(0, 6)
+    clearCorner.CornerRadius = UDim.new(0, 5)
     clearCorner.Parent = clearTargetBtn
 
-    -- Boton Targetear Mas Cercano
     closestBtn = Instance.new("TextButton")
     closestBtn.Size = UDim2.new(0.48, 0, 1, 0)
     closestBtn.Position = UDim2.new(0.52, 0, 0, 0)
     closestBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 200)
-    closestBtn.Text = "Mas Cercano"
+    closestBtn.Text = "Más Cercano"
     closestBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     closestBtn.Font = Enum.Font.GothamBold
-    closestBtn.TextSize = 11
-    closestBtn.Parent = buttonContainer
+    closestBtn.TextSize = 9
+    closestBtn.Parent = btnContainer
 
     local closestCorner = Instance.new("UICorner")
-    closestCorner.CornerRadius = UDim.new(0, 6)
+    closestCorner.CornerRadius = UDim.new(0, 5)
     closestCorner.Parent = closestBtn
+    yOffset = yOffset + 0.07
 
-    -- Info adicional
+    -- Info
     local infoLabel = Instance.new("TextLabel")
-    infoLabel.Size = UDim2.new(0.85, 0, 0, 20)
-    infoLabel.Position = UDim2.new(0.075, 0, 0.7, 0)
+    infoLabel.Size = UDim2.new(0.9, 0, 0, 14)
+    infoLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
     infoLabel.BackgroundTransparency = 1
-    infoLabel.Text = "Teclas: K = Mostrar/Ocultar | E = Hitbox | R = TP Walk"
+    infoLabel.Text = "K=Mostrar | E=Hitbox | R=TP"
     infoLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     infoLabel.Font = Enum.Font.Gotham
-    infoLabel.TextSize = 9
+    infoLabel.TextSize = 8
     infoLabel.TextXAlignment = Enum.TextXAlignment.Center
     infoLabel.Parent = Content
 
-    -- Sistema de arrastre para la ventana de configuración
+    -- Sistema de arrastre
     local dragging = false
     local dragStart = nil
     local startPos = nil
@@ -1015,7 +1042,6 @@ local function updateWalkSpeedButton()
     end
 end
 
--- Funcion para actualizar estado del target
 local function updateTargetStatus()
     if targetPlayer then
         targetStatus.Text = "Objetivo: " .. exactTargetName
@@ -1027,7 +1053,6 @@ local function updateTargetStatus()
     end
 end
 
--- Funcion para buscar y establecer target
 local function searchAndSetTarget()
     local searchText = targetBox.Text:gsub("%s+", "")
     local foundPlayer, resultName = findPlayerByPartialName(searchText)
@@ -1035,7 +1060,7 @@ local function searchAndSetTarget()
         targetPlayer = foundPlayer
         exactTargetName = resultName
         updateTargetStatus()
-        searchResult.Text = "Encontrado: " .. exactTargetName
+        searchResult.Text = "✓ Encontrado: " .. exactTargetName
         searchResult.TextColor3 = Color3.fromRGB(80, 255, 80)
         if HitboxEnabled then
             updateHitboxes()
@@ -1044,7 +1069,7 @@ local function searchAndSetTarget()
         targetPlayer = nil
         exactTargetName = "TODOS"
         updateTargetStatus()
-        searchResult.Text = "Modo: TODOS"
+        searchResult.Text = "✓ Modo: TODOS"
         searchResult.TextColor3 = Color3.fromRGB(120, 200, 255)
         if HitboxEnabled then
             updateHitboxes()
@@ -1053,14 +1078,13 @@ local function searchAndSetTarget()
         searchResult.Text = resultName
         searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
     end
-    task.wait(3)
-    if searchResult.Text:sub(1,1) == "E" or searchResult.Text:find("no encontrado") or searchResult.Text:find("Minimo") then
-        searchResult.Text = "Presiona Enter para buscar"
+    task.wait(2)
+    if searchResult.Text:sub(1,1) == "✓" or searchResult.Text:find("no encontrado") or searchResult.Text:find("Minimo") then
+        searchResult.Text = "Presiona Enter"
         searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
     end
 end
 
--- Funcion para targetear al jugador mas cercano
 local function targetClosest()
     local closestDistance = math.huge
     local closestPlayer = nil
@@ -1084,36 +1108,35 @@ local function targetClosest()
         exactTargetName = closestPlayer.DisplayName .. " (" .. closestPlayer.Name .. ")"
         updateTargetStatus()
         targetBox.Text = closestPlayer.Name
-        searchResult.Text = "Target mas cercano: " .. exactTargetName
+        searchResult.Text = "✓ Target: " .. exactTargetName
         searchResult.TextColor3 = Color3.fromRGB(80, 255, 80)
         if HitboxEnabled then
             updateHitboxes()
         end
         task.wait(2)
-        searchResult.Text = "Presiona Enter para buscar"
+        searchResult.Text = "Presiona Enter"
         searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
     else
-        searchResult.Text = "No hay jugadores cercanos"
+        searchResult.Text = "✗ No hay jugadores"
         searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
         task.wait(2)
-        searchResult.Text = "Presiona Enter para buscar"
+        searchResult.Text = "Presiona Enter"
         searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
     end
 end
 
--- Funcion para limpiar target
 local function clearTarget()
     targetPlayer = nil
     exactTargetName = "TODOS"
     targetBox.Text = ""
     updateTargetStatus()
-    searchResult.Text = "Target limpiado - Modo TODOS"
+    searchResult.Text = "✓ Target limpiado"
     searchResult.TextColor3 = Color3.fromRGB(120, 200, 255)
     if HitboxEnabled then
         updateHitboxes()
     end
     task.wait(2)
-    searchResult.Text = "Presiona Enter para buscar"
+    searchResult.Text = "Presiona Enter"
     searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
 end
 
@@ -1155,116 +1178,66 @@ local function findTextBoxes()
     local content = configFrame:FindFirstChild("Content")
     if not content then return end
     
-    -- Buscar WalkSpeed input
-    local walkSpeedContainer = content:FindFirstChild("walkSpeedContainer")
-    if walkSpeedContainer then
-        local walkSpeedInput = walkSpeedContainer:FindFirstChildWhichIsA("TextBox")
-        if walkSpeedInput then
-            walkSpeedInput.FocusLost:Connect(function(enter)
-                if enter then
-                    local value = tonumber(walkSpeedInput.Text)
-                    if value and value >= 0.1 and value <= 500 then
-                        setWalkSpeed(value)
-                    else
-                        walkSpeedInput.Text = tostring(WalkSpeedValue)
-                        if searchResult then
-                            searchResult.Text = "Velocidad invalida (0.1-500)"
-                            searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
-                            task.wait(2)
-                            if searchResult.Text:find("invalida") then
-                                searchResult.Text = "Presiona Enter para buscar"
-                                searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-    
-    -- Buscar TP Speed input
-    local tpContainer = content:FindFirstChild("tpContainer")
-    if tpContainer then
-        local tpSpeedInput = tpContainer:FindFirstChildWhichIsA("TextBox")
-        if tpSpeedInput then
-            tpSpeedInput.FocusLost:Connect(function(enter)
-                if enter then
-                    local value = tonumber(tpSpeedInput.Text)
-                    if value and value >= 0.01 and value <= 50 then
-                        setTPSpeed(value)
-                    else
-                        tpSpeedInput.Text = tostring(TPSpeedValue)
-                        if searchResult then
-                            searchResult.Text = "Velocidad TP invalida (0.01-50)"
-                            searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
-                            task.wait(2)
-                            if searchResult.Text:find("invalida") then
-                                searchResult.Text = "Presiona Enter para buscar"
-                                searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-    
-    -- Buscar Hitbox inputs
-    local hitboxSizeInput = nil
-    local hitboxTransparencyInput = nil
-    
-    for _, v in pairs(content:GetChildren()) do
+    for _, v in pairs(content:GetDescendants()) do
         if v:IsA("TextBox") then
-            if v.PlaceholderText and v.PlaceholderText:find("Tamano") then
-                hitboxSizeInput = v
-            elseif v.PlaceholderText and v.PlaceholderText:find("Transparencia") then
-                hitboxTransparencyInput = v
+            if v.PlaceholderText == "0.1-100" then
+                v.FocusLost:Connect(function(enter)
+                    if enter then
+                        local val = tonumber(v.Text)
+                        if val and val >= 0.1 and val <= 100 then
+                            setHitboxSize(val)
+                        else
+                            v.Text = tostring(HITBOX_SIZE)
+                            searchResult.Text = "✗ Tam inválido"
+                            task.wait(1.5)
+                            searchResult.Text = "Presiona Enter"
+                        end
+                    end
+                end)
+            elseif v.PlaceholderText == "0-1" then
+                v.FocusLost:Connect(function(enter)
+                    if enter then
+                        local val = tonumber(v.Text)
+                        if val and val >= 0 and val <= 1 then
+                            setHitboxTransparency(val)
+                        else
+                            v.Text = tostring(HITBOX_TRANSPARENCY)
+                            searchResult.Text = "✗ Trans inválida"
+                            task.wait(1.5)
+                            searchResult.Text = "Presiona Enter"
+                        end
+                    end
+                end)
+            elseif v.PlaceholderText == "Velocidad" then
+                v.FocusLost:Connect(function(enter)
+                    if enter then
+                        local val = tonumber(v.Text)
+                        if val and val >= 0.1 and val <= 500 then
+                            setWalkSpeed(val)
+                        else
+                            v.Text = tostring(WalkSpeedValue)
+                            searchResult.Text = "✗ Vel inválida"
+                            task.wait(1.5)
+                            searchResult.Text = "Presiona Enter"
+                        end
+                    end
+                end)
+            elseif v.PlaceholderText == "0.01-50" then
+                v.FocusLost:Connect(function(enter)
+                    if enter then
+                        local val = tonumber(v.Text)
+                        if val and val >= 0.01 and val <= 50 then
+                            setTPSpeed(val)
+                        else
+                            v.Text = tostring(TPSpeedValue)
+                            searchResult.Text = "✗ Vel TP inválida"
+                            task.wait(1.5)
+                            searchResult.Text = "Presiona Enter"
+                        end
+                    end
+                end)
             end
         end
-    end
-    
-    if hitboxSizeInput then
-        hitboxSizeInput.FocusLost:Connect(function(enter)
-            if enter then
-                local value = tonumber(hitboxSizeInput.Text)
-                if value and value >= 0.1 and value <= 100 then
-                    setHitboxSize(value)
-                else
-                    hitboxSizeInput.Text = tostring(HITBOX_SIZE)
-                    if searchResult then
-                        searchResult.Text = "Tamano invalido (0.1-100)"
-                        searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
-                        task.wait(2)
-                        if searchResult.Text:find("invalido") then
-                            searchResult.Text = "Presiona Enter para buscar"
-                            searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
-                        end
-                    end
-                end
-            end
-        end)
-    end
-    
-    if hitboxTransparencyInput then
-        hitboxTransparencyInput.FocusLost:Connect(function(enter)
-            if enter then
-                local value = tonumber(hitboxTransparencyInput.Text)
-                if value and value >= 0 and value <= 1 then
-                    setHitboxTransparency(value)
-                else
-                    hitboxTransparencyInput.Text = tostring(HITBOX_TRANSPARENCY)
-                    if searchResult then
-                        searchResult.Text = "Transparencia invalida (0-1)"
-                        searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
-                        task.wait(2)
-                        if searchResult.Text:find("invalida") then
-                            searchResult.Text = "Presiona Enter para buscar"
-                            searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
-                        end
-                    end
-                end
-            end
-        end)
     end
 end
 
@@ -1300,10 +1273,10 @@ Players.PlayerRemoving:Connect(function(p)
         if targetBox then targetBox.Text = "" end
         updateTargetStatus()
         if searchResult then
-            searchResult.Text = "El objetivo salio del juego"
+            searchResult.Text = "⚠️ Objetivo salió"
             searchResult.TextColor3 = Color3.fromRGB(255, 150, 50)
             task.wait(2)
-            searchResult.Text = "Presiona Enter para buscar"
+            searchResult.Text = "Presiona Enter"
             searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
         end
         if HitboxEnabled then
@@ -1364,7 +1337,8 @@ setHitboxSize(30)
 setHitboxTransparency(1)
 
 print("=== HITBOX EXPANDER + MOVEMENT + ANTI-RAGDOLL ===")
-print("✅ Botón LOOP WALKSPEED cambiado a 'LOOP W' (más pequeño)")
-print("✅ Botón y input de velocidad están lado a lado")
-print("✅ Interfaces arrastrables con el mouse")
-print("✅ Teclas: K = Mostrar/Ocultar | E = Hitbox | R = TP Walk")
+print("✅ Interfaz de configuración COMPACTA (260x320)")
+print("✅ Todo organizado en secciones con etiquetas")
+print("✅ Cajas de texto y botones más pequeños")
+print("✅ Arrastrable desde la barra superior")
+print("✅ Teclas: K=Mostrar | E=Hitbox | R=TP Walk")
