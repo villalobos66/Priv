@@ -31,7 +31,7 @@ local REPEAT_AMOUNT = 26
 local damageRepeaterEnabled = false
 local mt = nil
 local old = nil
-local isDamageRepeaterActive = false  -- Variable para rastrear estado activo
+local isDamageRepeaterActive = false
 
 -- Excepciones - eventos que NO se repetirán
 local exceptions = {
@@ -42,19 +42,16 @@ local exceptions = {
 }
 
 local function EnableDamageRepeater()
-    -- Si ya está activo, no hacer nada
     if isDamageRepeaterActive then
         return
     end
     
-    -- Obtener metatabla si no existe
     if not mt then
         mt = getrawmetatable(game)
         old = mt.__namecall
         setreadonly(mt, false)
     end
     
-    -- Asegurarse de que old sigue siendo la función original
     if not old then
         old = mt.__namecall
     end
@@ -62,14 +59,12 @@ local function EnableDamageRepeater()
     mt.__namecall = function(self, ...)
         local method = getnamecallmethod()
         
-        -- Verificar excepciones
         for _, exception in pairs(exceptions) do
             if self.Name == exception then
                 return old(self, ...)
             end
         end
         
-        -- Repetir eventos de daño/ataque
         if method == "FireServer" or method == "InvokeServer" then
             if string.find(self.Name:lower(), "hit") or 
                string.find(self.Name:lower(), "damage") or
@@ -475,7 +470,79 @@ local function setTPWalkEnabled(enabled)
     end
 end
 
--- ==================== INTERFAZ DE BOTONES PRINCIPALES (CON ARRASTRE TÁCTIL MEJORADO) ====================
+-- ==================== SISTEMA DE ARRASTRE UNIVERSAL ====================
+local function MakeDraggable(frame, dragHandle)
+    local dragHandleFrame = dragHandle or frame
+    local dragging = false
+    local dragStartPos = nil
+    local frameStartPos = nil
+    local dragConnection = nil
+    local dragEndConnection = nil
+    
+    local function startDrag(input)
+        dragging = true
+        dragStartPos = input.Position
+        frameStartPos = frame.Position
+        
+        -- Cambiar opacidad al arrastrar
+        if dragHandleFrame.BackgroundTransparency then
+            local originalTrans = dragHandleFrame.BackgroundTransparency
+            dragHandleFrame.BackgroundTransparency = math.min(originalTrans + 0.3, 0.8)
+        end
+        
+        dragConnection = UserInputService.InputChanged:Connect(function(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
+               input.UserInputType == Enum.UserInputType.Touch) then
+                local delta = input.Position - dragStartPos
+                frame.Position = UDim2.new(
+                    frameStartPos.X.Scale, frameStartPos.X.Offset + delta.X,
+                    frameStartPos.Y.Scale, frameStartPos.Y.Offset + delta.Y
+                )
+            end
+        end)
+        
+        dragEndConnection = UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+               input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+                if dragHandleFrame.BackgroundTransparency then
+                    dragHandleFrame.BackgroundTransparency = 0.2
+                end
+                if dragConnection then dragConnection:Disconnect() end
+                if dragEndConnection then dragEndConnection:Disconnect() end
+            end
+        end)
+    end
+    
+    dragHandleFrame.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            
+            -- Verificar si el clic fue en un botón (para no arrastrar)
+            local target = UserInputService:GetMouseTarget()
+            local isButton = false
+            
+            if target then
+                local current = target
+                while current and current ~= frame do
+                    if current:IsA("TextButton") then
+                        isButton = true
+                        break
+                    end
+                    current = current.Parent
+                end
+            end
+            
+            if not isButton then
+                startDrag(input)
+            end
+        end
+    end)
+end
+
+-- ==================== INTERFAZ DE BOTONES PRINCIPALES ====================
 local function CreateButtonsInterface()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ButtonsGUI"
@@ -501,7 +568,7 @@ local function CreateButtonsInterface()
     UIStroke.Transparency = 0.5
     UIStroke.Parent = Frame
 
-    -- BARRA DE ARRASTRE MÁS GRANDE (para tacto)
+    -- BARRA DE ARRASTRE
     local DragBar = Instance.new("Frame")
     DragBar.Size = UDim2.new(1, 0, 0, 35)
     DragBar.Position = UDim2.new(0, 0, 0, 0)
@@ -514,7 +581,7 @@ local function CreateButtonsInterface()
     DragBarCorner.CornerRadius = UDim.new(0, 12)
     DragBarCorner.Parent = DragBar
 
-    -- Icono de arrastre (tres líneas)
+    -- Icono de arrastre
     local DragIcon = Instance.new("TextLabel")
     DragIcon.Size = UDim2.new(0, 30, 0, 35)
     DragIcon.Position = UDim2.new(0, 8, 0, 0)
@@ -530,7 +597,7 @@ local function CreateButtonsInterface()
     DragText.Size = UDim2.new(0.6, 0, 1, 0)
     DragText.Position = UDim2.new(0, 45, 0, 0)
     DragText.BackgroundTransparency = 1
-    DragText.Text = "PANEL DE CONTROL"
+    DragText.Text = "PANEL DE CONTROL (Arrastrable)"
     DragText.TextColor3 = Color3.fromRGB(200, 200, 255)
     DragText.TextSize = 11
     DragText.Font = Enum.Font.GothamBold
@@ -552,7 +619,7 @@ local function CreateButtonsInterface()
     configCorner.CornerRadius = UDim.new(0, 6)
     configCorner.Parent = ConfigButton
 
-    -- Contenedor de botones (4 botones)
+    -- Contenedor de botones
     local ButtonsContainer = Instance.new("Frame")
     ButtonsContainer.Size = UDim2.new(0.96, 0, 0.55, 0)
     ButtonsContainer.Position = UDim2.new(0.02, 0, 0.48, 0)
@@ -623,88 +690,8 @@ local function CreateButtonsInterface()
     damageRepeaterCorner.CornerRadius = UDim.new(0, 8)
     damageRepeaterCorner.Parent = damageRepeaterBtn
 
-    -- ==================== SISTEMA DE ARRASTRE TÁCTIL MEJORADO ====================
-    local dragging = false
-    local dragStartPos = nil
-    local frameStartPos = nil
-    local dragConnection = nil
-    local dragEndConnection = nil
-    
-    local function startDrag(input)
-        dragging = true
-        dragStartPos = input.Position
-        frameStartPos = Frame.Position
-        
-        -- Cambiar opacidad de la barra al arrastrar
-        DragBar.BackgroundTransparency = 0.5
-        
-        dragConnection = UserInputService.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
-               input.UserInputType == Enum.UserInputType.Touch) then
-                local delta = input.Position - dragStartPos
-                Frame.Position = UDim2.new(
-                    frameStartPos.X.Scale, frameStartPos.X.Offset + delta.X,
-                    frameStartPos.Y.Scale, frameStartPos.Y.Offset + delta.Y
-                )
-            end
-        end)
-        
-        dragEndConnection = UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-               input.UserInputType == Enum.UserInputType.Touch then
-                dragging = false
-                DragBar.BackgroundTransparency = 0.2
-                if dragConnection then dragConnection:Disconnect() end
-                if dragEndConnection then dragEndConnection:Disconnect() end
-            end
-        end)
-    end
-    
-    -- Detectar inicio de arrastre en la barra superior
-    DragBar.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-           input.UserInputType == Enum.UserInputType.Touch then
-            
-            -- Verificar que no se hizo clic en el botón de configuración
-            local target = UserInputService:GetMouseTarget()
-            if target and (target == ConfigButton or target.Parent == ConfigButton) then
-                return
-            end
-            
-            startDrag(input)
-        end
-    end)
-    
-    -- También permitir arrastre desde cualquier parte de la ventana (excepto botones)
-    Frame.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-           input.UserInputType == Enum.UserInputType.Touch then
-            
-            local target = UserInputService:GetMouseTarget()
-            local isButton = false
-            
-            -- Verificar si se hizo clic en algún botón
-            if target then
-                local current = target
-                while current and current ~= Frame do
-                    if current:IsA("TextButton") then
-                        isButton = true
-                        break
-                    end
-                    current = current.Parent
-                end
-            end
-            
-            -- Si no es un botón, permitir arrastre
-            if not isButton then
-                startDrag(input)
-            end
-        end
-    end)
+    -- Hacer el panel arrastrable
+    MakeDraggable(Frame, DragBar)
 
     return ScreenGui, Frame, ConfigButton
 end
@@ -719,8 +706,8 @@ local function CreateConfigInterface()
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 260, 0, 350)
-    Frame.Position = UDim2.new(0.5, -130, 0.5, -175)
+    Frame.Size = UDim2.new(0, 260, 0, 380)
+    Frame.Position = UDim2.new(0.5, -130, 0.5, -190)
     Frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     Frame.BorderSizePixel = 0
     Frame.ClipsDescendants = true
@@ -752,9 +739,9 @@ local function CreateConfigInterface()
     Title.Size = UDim2.new(0.7, 0, 1, 0)
     Title.Position = UDim2.new(0, 12, 0, 0)
     Title.BackgroundTransparency = 1
-    Title.Text = "⋮⋮ CONFIGURACIÓN ⋮⋮"
+    Title.Text = "⋮⋮ CONFIGURACIÓN (Arrastrable) ⋮⋮"
     Title.TextColor3 = Color3.fromRGB(255, 200, 100)
-    Title.TextSize = 11
+    Title.TextSize = 10
     Title.Font = Enum.Font.GothamBold
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.Parent = TitleBar
@@ -774,10 +761,12 @@ local function CreateConfigInterface()
     CloseCorner.Parent = CloseBtn
 
     -- Contenido
-    local Content = Instance.new("Frame")
+    local Content = Instance.new("ScrollingFrame")
     Content.Size = UDim2.new(1, 0, 1, -35)
     Content.Position = UDim2.new(0, 0, 0, 35)
     Content.BackgroundTransparency = 1
+    Content.CanvasSize = UDim2.new(0, 0, 0, 420)
+    Content.ScrollBarThickness = 4
     Content.Parent = Frame
 
     local yOffset = 0.05
@@ -1175,46 +1164,11 @@ local function CreateConfigInterface()
     infoLabel.TextXAlignment = Enum.TextXAlignment.Center
     infoLabel.Parent = Content
 
-    -- Sistema de arrastre para la ventana de configuración
-    local dragging = false
-    local dragStart = nil
-    local startPos = nil
-    local dragConnection = nil
-    local dragEndConnection = nil
-    
-    TitleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-           input.UserInputType == Enum.UserInputType.Touch then
-            local target = UserInputService:GetMouseTarget()
-            if target and target == CloseBtn then
-                return
-            end
-            
-            dragging = true
-            dragStart = input.Position
-            startPos = Frame.Position
-            
-            dragConnection = UserInputService.InputChanged:Connect(function(input)
-                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or
-                   input.UserInputType == Enum.UserInputType.Touch) then
-                    local delta = input.Position - dragStart
-                    Frame.Position = UDim2.new(
-                        startPos.X.Scale, startPos.X.Offset + delta.X,
-                        startPos.Y.Scale, startPos.Y.Offset + delta.Y
-                    )
-                end
-            end)
-            
-            dragEndConnection = UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or
-                   input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = false
-                    if dragConnection then dragConnection:Disconnect() end
-                    if dragEndConnection then dragEndConnection:Disconnect() end
-                end
-            end)
-        end
-    end)
+    -- Ajustar CanvasSize del ScrollingFrame
+    Content.CanvasSize = UDim2.new(0, 0, 0, yOffset * 1000 + 20)
+
+    -- Hacer la ventana de configuración arrastrable
+    MakeDraggable(Frame, TitleBar)
 
     return ScreenGui, Frame, CloseBtn
 end
@@ -1606,8 +1560,8 @@ setHitboxSize(30)
 setHitboxTransparency(1)
 
 print("=== HITBOX EXPANDER + MOVEMENT + ANTI-RAGDOLL + DAMAGE REPEATER ===")
-print("✅ Arrastre táctil mejorado - Barra superior más grande")
-print("✅ Se puede arrastrar desde cualquier parte de la ventana (excepto botones)")
+print("✅ Interfaz completamente arrastrable (mouse y táctil)")
+print("✅ Arrastra desde la barra superior o cualquier área vacía")
 print("✅ Panel de botones con 4 funciones: HIT | TP | RAG | REP")
 print("✅ Teclas: K=Mostrar | E=Hitbox | R=TP Walk")
-print("✅ Damage Repeater corregido - Ahora funciona al activar/desactivar múltiples veces")
+print("✅ Damage Repeater corregido - Funciona al activar/desactivar múltiples veces")
