@@ -68,72 +68,116 @@ local TPWalkEnabled = false
 local TPSpeedValue = 3
 local tpWalkConnection = nil
 
--- ==================== DAMAGE REPEATER MEJORADO ====================
+-- ==================== DAMAGE REPEATER OPTIMIZADO (SOLO GOLPES) ====================
 local REPEAT_AMOUNT = 26
 local damageRepeaterEnabled = false
 local mt = nil
 local old = nil
 
--- LIMITACIONES PARA EVITAR LAG
-local MAX_REPEAT_PER_SECOND = 10  -- Máximo de repeticiones por segundo por jugador
-local lastRepeatTime = {}  -- Almacena la última vez que se repitió un ataque por jugador
-
--- Excepciones - eventos que NO se repetirán
-local exceptions = {
-    "SayMessageRequest",
-    "MeleeUpdateEvent", 
-    "NinjaBombEvent",
-    "BulletUpdateEvent",
-    "UpdateAnimation",  -- Evitar repetir animaciones que causan deformación
-    "SetAnimation",     -- Evitar repetir animaciones
-    "MoveEvent",        -- Evitar repetir eventos de movimiento
-    "JumpEvent"         -- Evitar repetir saltos
+-- Nombres de eventos que SON golpes (SOLO estos se repetirán)
+local DAMAGE_EVENTS = {
+    "Hit",
+    "Damage",
+    "DealDamage",
+    "TakeDamage",
+    "MeleeHit",
+    "Punch",
+    "Kick",
+    "Attack",
+    "SwordHit",
+    "Swing",
+    "Strike"
 }
 
--- Función para limpiar el caché de tiempos
-local function cleanLastRepeatTime()
-    local now = tick()
-    for playerName, lastTime in pairs(lastRepeatTime) do
-        if now - lastTime > 5 then
-            lastRepeatTime[playerName] = nil
-        end
-    end
-end
+-- Nombres de eventos que NUNCA se repetirán (para evitar deformación)
+local IGNORED_EVENTS = {
+    "SayMessageRequest",
+    "MeleeUpdateEvent",
+    "NinjaBombEvent",
+    "BulletUpdateEvent",
+    "UpdateAnimation",
+    "SetAnimation",
+    "MoveEvent",
+    "JumpEvent",
+    "SitEvent",
+    "Emote",
+    "Dance",
+    "Pose",
+    "AnimationEvent",
+    "CharacterAdded",
+    "HumanoidDescription",
+    "LoadCharacter",
+    "Respawn",
+    "Teleport",
+    "UpdateMotor6D",
+    "SetMotor6D",
+    "Ragdoll",
+    "Fall"
+}
+
+-- Variables para limitar repeticiones
+local lastRepeatTime = {}
+local MAX_REPEAT_PER_SECOND = 15
 
 -- Limpiar caché cada 10 segundos
 task.spawn(function()
     while true do
         task.wait(10)
-        cleanLastRepeatTime()
+        local now = tick()
+        for name, time in pairs(lastRepeatTime) do
+            if now - time > 5 then
+                lastRepeatTime[name] = nil
+            end
+        end
     end
 end)
 
--- Función para obtener el nombre del jugador objetivo del evento
+-- Función para obtener el nombre del jugador objetivo
 local function getTargetPlayerFromArgs(...)
     for i = 1, select("#", ...) do
         local arg = select(i, ...)
         if type(arg) == "string" then
-            local targetPlayerObj = Players:FindFirstChild(arg)
-            if targetPlayerObj then
-                return targetPlayerObj.Name
+            local target = Players:FindFirstChild(arg)
+            if target then
+                return target.Name
             end
+        elseif type(arg) == "table" and arg.Name and Players:FindFirstChild(arg.Name) then
+            return arg.Name
         end
     end
     return nil
 end
 
--- Función para verificar si se debe repetir (con límite de tasa)
+-- Función para verificar si es un evento de daño
+local function isDamageEvent(eventName)
+    local lowerName = eventName:lower()
+    for _, damageEvent in ipairs(DAMAGE_EVENTS) do
+        if lowerName == damageEvent:lower() or lowerName:find(damageEvent:lower()) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Función para verificar si es un evento ignorado
+local function isIgnoredEvent(eventName)
+    local lowerName = eventName:lower()
+    for _, ignoredEvent in ipairs(IGNORED_EVENTS) do
+        if lowerName == ignoredEvent:lower() or lowerName:find(ignoredEvent:lower()) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Función para verificar límite de tasa
 local function shouldRepeat(targetPlayerName)
     if not targetPlayerName then return true end
-    
     local now = tick()
     local lastTime = lastRepeatTime[targetPlayerName] or 0
-    
-    -- Si pasó menos de 1/MAX_REPEAT_PER_SECOND segundos, no repetir
     if now - lastTime < (1 / MAX_REPEAT_PER_SECOND) then
         return false
     end
-    
     lastRepeatTime[targetPlayerName] = now
     return true
 end
@@ -147,60 +191,43 @@ local function EnableDamageRepeater()
     
     mt.__namecall = function(self, ...)
         local method = getnamecallmethod()
+        local eventName = self.Name
         
-        -- Verificar excepciones
-        for _, exception in pairs(exceptions) do
-            if self.Name == exception then
-                return old(self, ...)
-            end
+        -- IGNORAR COMPLETAMENTE eventos problemáticos (no se repiten NUNCA)
+        if isIgnoredEvent(eventName) then
+            return old(self, ...)
         end
         
         if method == "FireServer" or method == "InvokeServer" then
-            -- Obtener el jugador objetivo
-            local targetPlayerName = getTargetPlayerFromArgs(...)
-            
-            -- Verificar si el objetivo está prohibido
-            if targetPlayerName and isPlayerProhibited(Players:FindFirstChild(targetPlayerName)) then
-                return old(self, ...)
-            end
-            
-            -- Verificar si es un evento de ataque
-            local isAttackEvent = false
-            local attackType = nil
-            
-            if string.find(self.Name:lower(), "hit") or 
-               string.find(self.Name:lower(), "damage") or
-               string.find(self.Name:lower(), "attack") or
-               string.find(self.Name:lower(), "melee") then
-                isAttackEvent = true
-                attackType = "damage"
-            end
-            
-            -- Verificar si es un evento de animación (no repetir)
-            if string.find(self.Name:lower(), "animation") or
-               string.find(self.Name:lower(), "emote") or
-               string.find(self.Name:lower(), "pose") then
-                return old(self, ...)
-            end
-            
-            if isAttackEvent then
-                -- Aplicar límite de tasa para evitar lag
+            -- SOLO repetir si es un evento de daño
+            if isDamageEvent(eventName) then
+                -- Obtener objetivo
+                local targetPlayerName = getTargetPlayerFromArgs(...)
+                
+                -- Verificar si el objetivo está prohibido
+                if targetPlayerName and isPlayerProhibited(Players:FindFirstChild(targetPlayerName)) then
+                    return old(self, ...)
+                end
+                
+                -- Verificar límite de tasa
                 if shouldRepeat(targetPlayerName) then
+                    -- Repetir el daño
                     for i = 1, REPEAT_AMOUNT do
                         old(self, ...)
-                        -- Pequeña pausa entre repeticiones para no saturar
+                        -- Pequeña pausa para evitar saturación
                         if i % 5 == 0 then
-                            task.wait(0.01)
+                            task.wait(0.005)
                         end
                     end
                 else
-                    -- Solo ejecutar una vez si se excede el límite
+                    -- Si excede límite, solo ejecutar una vez
                     old(self, ...)
                 end
                 return
             end
         end
         
+        -- Para cualquier otro evento, ejecutar normalmente sin repetir
         return old(self, ...)
     end
 end
@@ -223,7 +250,7 @@ local function toggleDamageRepeater()
             damageRepeaterBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
         end
         if repeatStatusLabel then
-            repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x (máx " .. MAX_REPEAT_PER_SECOND .. "/s)"
+            repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x (solo golpes)"
             repeatStatusLabel.TextColor3 = Color3.fromRGB(80, 255, 80)
         end
     else
@@ -304,6 +331,316 @@ local function antiRagdollLoop()
         humanoid.PlatformStand = false
         humanoid.Sit = false
         humanoid.AutoRotate = true
+        rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 20, rootPart.Velocity.Z)
+    end
+end
+
+local function setupAntiRagdoll(character)
+    if antiRagdollConnection then
+        antiRagdollConnection:Disconnect()
+        antiRagdollConnection = nil
+    end
+    
+    task.wait(0.5)
+    updateJoints(character)
+    if AntiRagdollEnabled then
+        antiRagdollConnection = RunService.Heartbeat:Connect(antiRagdollLoop)
+    end
+end
+
+local function toggleAntiRagdoll()
+    AntiRagdollEnabled = not AntiRagdollEnabled
+    
+    if AntiRagdollEnabled then
+        if player.Character then
+            setupAntiRagdoll(player.Character)
+        end
+    else
+        if antiRagdollConnection then
+            antiRagdollConnection:Disconnect()
+            antiRagdollConnection = nil
+        end
+    end
+end
+
+if player.Character then
+    setupAntiRagdoll(player.Character)
+end
+
+player.CharacterAdded:Connect(function(character)
+    task.wait(0.5)
+    setupAntiRagdoll(character)
+end)
+
+-- ==================== FUNCIONES AUXILIARES ====================
+local function findPlayerByPartialName(inputText)
+    if inputText == "" or inputText:lower() == "todos" or inputText:lower() == "all" then
+        return nil, "TODOS"
+    end
+    local searchText = inputText:lower():gsub("%s+", "")
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player and not isPlayerProhibited(p) then
+            if p.Name:lower() == searchText then return p, p.Name end
+            if p.DisplayName:lower() == searchText then return p, p.DisplayName end
+        end
+    end
+    if #searchText >= 3 then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player and not isPlayerProhibited(p) then
+                if p.Name:lower():sub(1, #searchText) == searchText then return p, p.Name end
+                if p.DisplayName:lower():sub(1, #searchText) == searchText then return p, p.DisplayName end
+            end
+        end
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player and not isPlayerProhibited(p) then
+                if p.Name:lower():find(searchText, 1, true) then return p, p.Name end
+                if p.DisplayName:lower():find(searchText, 1, true) then return p, p.DisplayName end
+            end
+        end
+    end
+    if #searchText > 0 and #searchText < 3 then return false, "Mínimo 3 letras" end
+    return false, "No encontrado"
+end
+
+-- ==================== HITBOX CON TRANSPARENCIA FUNCIONAL ====================
+local function resetHitbox(target)
+    pcall(function()
+        if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = target.Character.HumanoidRootPart
+            rootPart.Size = Vector3.new(2, 2, 1)
+            rootPart.Transparency = 1
+            rootPart.BrickColor = BrickColor.new("Medium stone grey")
+            rootPart.Material = Enum.Material.Plastic
+            rootPart.CanCollide = false
+            rootPart.Color = Color3.fromRGB(255, 255, 255)
+        end
+    end)
+end
+
+local function resetAllHitboxes()
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= player and not isPlayerProhibited(v) then
+            resetHitbox(v)
+        end
+    end
+end
+
+local function applyHitboxToPlayer(target)
+    pcall(function()
+        if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = target.Character.HumanoidRootPart
+            rootPart.Size = Vector3.new(HITBOX_SIZE, HITBOX_SIZE, HITBOX_SIZE)
+            rootPart.Transparency = HITBOX_TRANSPARENCY
+            rootPart.Color = HITBOX_COLOR
+            rootPart.BrickColor = BrickColor.new("Really red")
+            rootPart.Material = Enum.Material.SmoothPlastic
+            rootPart.CanCollide = false
+            rootPart.Reflectance = 0
+        end
+    end)
+end
+
+local function shouldHitPlayer(playerObj)
+    if playerObj == player then return false end
+    if isPlayerProhibited(playerObj) then return false end
+    if not playerObj.Character then return false end
+    if not playerObj.Character:FindFirstChild("HumanoidRootPart") then return false end
+    return true
+end
+
+local function updateHitboxes()
+    if not HitboxEnabled then
+        resetAllHitboxes()
+        return
+    end
+    
+    if targetPlayer then
+        if shouldHitPlayer(targetPlayer) then
+            for _, v in pairs(Players:GetPlayers()) do
+                if v ~= player and v ~= targetPlayer and not isPlayerProhibited(v) then
+                    resetHitbox(v)
+                end
+            end
+            applyHitboxToPlayer(targetPlayer)
+        else
+            resetHitbox(targetPlayer)
+        end
+    else
+        for _, v in pairs(Players:GetPlayers()) do
+            if shouldHitPlayer(v) then
+                applyHitboxToPlayer(v)
+            else
+                resetHitbox(v)
+            end
+        end
+    end
+end
+
+local function setHitboxSize(value)
+    HITBOX_SIZE = tonumber(value)
+    if hitboxSizeLabel then
+        hitboxSizeLabel.Text = "Tamaño: " .. HITBOX_SIZE
+    end
+    if HitboxEnabled then
+        updateHitboxes()
+    end
+end
+
+local function setHitboxTransparency(value)
+    HITBOX_TRANSPARENCY = tonumber(value)
+    if hitboxTransparencyLabel then
+        hitboxTransparencyLabel.Text = "Transparencia: " .. HITBOX_TRANSPARENCY
+    end
+    if HitboxEnabled then
+        updateHitboxes()
+    end
+end
+
+-- Funciones de movimiento
+local function getCharacter()
+    return player.Character
+end
+
+local function getHumanoid()
+    local char = getCharacter()
+    return char and char:FindFirstChildWhichIsA("Humanoid")
+end
+
+local function setupLoopWalkSpeed()
+    if loopWalkSpeedConnection then
+        loopWalkSpeedConnection:Disconnect()
+        loopWalkSpeedConnection = nil
+    end
+    
+    if WalkSpeedEnabled then
+        loopWalkSpeedConnection = RunService.Heartbeat:Connect(function()
+            local humanoid = getHumanoid()
+            if humanoid and math.abs(humanoid.WalkSpeed - WalkSpeedValue) > 0.001 then
+                pcall(function()
+                    humanoid.WalkSpeed = WalkSpeedValue
+                end)
+            end
+        end)
+    end
+end
+
+local function setWalkSpeed(value)
+    WalkSpeedValue = tonumber(value)
+    local humanoid = getHumanoid()
+    if humanoid then
+        pcall(function()
+            humanoid.WalkSpeed = WalkSpeedValue
+        end)
+    end
+    if walkSpeedValueLabel then
+        walkSpeedValueLabel.Text = "Vel actual: " .. string.format("%.2f", WalkSpeedValue)
+    end
+end
+
+local function setWalkSpeedEnabled(enabled)
+    WalkSpeedEnabled = enabled
+    setupLoopWalkSpeed()
+    
+    if not enabled then
+        local humanoid = getHumanoid()
+        if humanoid then
+            pcall(function()
+                humanoid.WalkSpeed = 16
+            end)
+        end
+    else
+        local humanoid = getHumanoid()
+        if humanoid then
+            pcall(function()
+                humanoid.WalkSpeed = WalkSpeedValue
+            end)
+        end
+    end
+    
+    if walkSpeedBtn then
+        if enabled then
+            walkSpeedBtn.Text = "LOOP\nON"
+            walkSpeedBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
+            walkSpeedBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
+        else
+            walkSpeedBtn.Text = "LOOP\nOFF"
+            walkSpeedBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+            walkSpeedBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        end
+    end
+end
+
+-- Funciones para TP Walk
+local function setupTPWalk()
+    if tpWalkConnection then
+        tpWalkConnection:Disconnect()
+        tpWalkConnection = nil
+    end
+    
+    if TPWalkEnabled then
+        tpWalkConnection = RunService.Heartbeat:Connect(function()
+            local char = getCharacter()
+            local hum = getHumanoid()
+            
+            if char and hum and hum.Parent then
+                if hum.MoveDirection.Magnitude > 0 then
+                    pcall(function()
+                        local speed = tonumber(TPSpeedValue) or 3
+                        char:TranslateBy(hum.MoveDirection * speed)
+                    end)
+                end
+            end
+        end)
+    end
+end
+
+local function setTPSpeed(value)
+    TPSpeedValue = tonumber(value)
+    if tpSpeedValueLabel then
+        tpSpeedValueLabel.Text = "Vel TP: " .. string.format("%.2f", TPSpeedValue)
+    end
+end
+
+local function setTPWalkEnabled(enabled)
+    TPWalkEnabled = enabled
+    setupTPWalk()
+    
+    if tpWalkBtn then
+        if enabled then
+            tpWalkBtn.Text = "TP\nON"
+            tpWalkBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
+            tpWalkBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
+        else
+            tpWalkBtn.Text = "TP\nOFF"
+            tpWalkBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+            tpWalkBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        end
+    end
+end
+
+-- ==================== FUNCIÓN DE ARRASTRE ====================
+local function MakeDraggableWithHandle(frame, handle)
+    local dragging = false
+    local dragStartPos = nil
+    local frameStartPos = nil
+    
+    handle.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStartPos = input.Position
+            frameStartPos = frame.Position
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
+           input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStartPos
+            frame.Position = UDim2.new(
+               humanoid.AutoRotate = true
         rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 20, rootPart.Velocity.Z)
     end
 end
