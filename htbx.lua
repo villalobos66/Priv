@@ -68,48 +68,76 @@ local TPWalkEnabled = false
 local TPSpeedValue = 3
 local tpWalkConnection = nil
 
--- ==================== DAMAGE REPEATER ====================
+-- ==================== DAMAGE REPEATER MEJORADO ====================
 local REPEAT_AMOUNT = 26
 local damageRepeaterEnabled = false
 local mt = nil
 local old = nil
+
+-- LIMITACIONES PARA EVITAR LAG
+local MAX_REPEAT_PER_SECOND = 10  -- Máximo de repeticiones por segundo por jugador
+local lastRepeatTime = {}  -- Almacena la última vez que se repitió un ataque por jugador
 
 -- Excepciones - eventos que NO se repetirán
 local exceptions = {
     "SayMessageRequest",
     "MeleeUpdateEvent", 
     "NinjaBombEvent",
-    "BulletUpdateEvent"
+    "BulletUpdateEvent",
+    "UpdateAnimation",  -- Evitar repetir animaciones que causan deformación
+    "SetAnimation",     -- Evitar repetir animaciones
+    "MoveEvent",        -- Evitar repetir eventos de movimiento
+    "JumpEvent"         -- Evitar repetir saltos
 }
 
--- Variables para referencias de UI
-local walkSpeedBtn = nil
-local walkSpeedValueLabel = nil
-local tpSpeedValueLabel = nil
-local hitboxSizeLabel = nil
-local hitboxTransparencyLabel = nil
-local targetStatus = nil
-local searchResult = nil
-local targetBox = nil
-local clearTargetBtn = nil
-local closestBtn = nil
-local configFrame = nil
-local configScreenGui = nil
-local repeatInput = nil
-local repeatStatusLabel = nil
+-- Función para limpiar el caché de tiempos
+local function cleanLastRepeatTime()
+    local now = tick()
+    for playerName, lastTime in pairs(lastRepeatTime) do
+        if now - lastTime > 5 then
+            lastRepeatTime[playerName] = nil
+        end
+    end
+end
 
--- Variables para la interfaz de botones
-local buttonsFrame = nil
-local buttonsScreenGui = nil
-local hitboxBtn = nil
-local tpWalkBtn = nil
-local antiRagdollBtn = nil
-local damageRepeaterBtn = nil
+-- Limpiar caché cada 10 segundos
+task.spawn(function()
+    while true do
+        task.wait(10)
+        cleanLastRepeatTime()
+    end
+end)
 
--- Conexiones para limpiar
-local hitboxConnection = nil
+-- Función para obtener el nombre del jugador objetivo del evento
+local function getTargetPlayerFromArgs(...)
+    for i = 1, select("#", ...) do
+        local arg = select(i, ...)
+        if type(arg) == "string" then
+            local targetPlayerObj = Players:FindFirstChild(arg)
+            if targetPlayerObj then
+                return targetPlayerObj.Name
+            end
+        end
+    end
+    return nil
+end
 
--- ==================== FUNCIONES DAMAGE REPEATER ====================
+-- Función para verificar si se debe repetir (con límite de tasa)
+local function shouldRepeat(targetPlayerName)
+    if not targetPlayerName then return true end
+    
+    local now = tick()
+    local lastTime = lastRepeatTime[targetPlayerName] or 0
+    
+    -- Si pasó menos de 1/MAX_REPEAT_PER_SECOND segundos, no repetir
+    if now - lastTime < (1 / MAX_REPEAT_PER_SECOND) then
+        return false
+    end
+    
+    lastRepeatTime[targetPlayerName] = now
+    return true
+end
+
 local function EnableDamageRepeater()
     if not mt then
         mt = getrawmetatable(game)
@@ -120,6 +148,7 @@ local function EnableDamageRepeater()
     mt.__namecall = function(self, ...)
         local method = getnamecallmethod()
         
+        -- Verificar excepciones
         for _, exception in pairs(exceptions) do
             if self.Name == exception then
                 return old(self, ...)
@@ -127,25 +156,45 @@ local function EnableDamageRepeater()
         end
         
         if method == "FireServer" or method == "InvokeServer" then
-            local targetPlayerName = nil
-            for i = 1, select("#", ...) do
-                local arg = select(i, ...)
-                if type(arg) == "string" and Players:FindFirstChild(arg) then
-                    targetPlayerName = arg
-                    break
-                end
-            end
+            -- Obtener el jugador objetivo
+            local targetPlayerName = getTargetPlayerFromArgs(...)
             
+            -- Verificar si el objetivo está prohibido
             if targetPlayerName and isPlayerProhibited(Players:FindFirstChild(targetPlayerName)) then
                 return old(self, ...)
             end
+            
+            -- Verificar si es un evento de ataque
+            local isAttackEvent = false
+            local attackType = nil
             
             if string.find(self.Name:lower(), "hit") or 
                string.find(self.Name:lower(), "damage") or
                string.find(self.Name:lower(), "attack") or
                string.find(self.Name:lower(), "melee") then
-                
-                for i = 1, REPEAT_AMOUNT do
+                isAttackEvent = true
+                attackType = "damage"
+            end
+            
+            -- Verificar si es un evento de animación (no repetir)
+            if string.find(self.Name:lower(), "animation") or
+               string.find(self.Name:lower(), "emote") or
+               string.find(self.Name:lower(), "pose") then
+                return old(self, ...)
+            end
+            
+            if isAttackEvent then
+                -- Aplicar límite de tasa para evitar lag
+                if shouldRepeat(targetPlayerName) then
+                    for i = 1, REPEAT_AMOUNT do
+                        old(self, ...)
+                        -- Pequeña pausa entre repeticiones para no saturar
+                        if i % 5 == 0 then
+                            task.wait(0.01)
+                        end
+                    end
+                else
+                    -- Solo ejecutar una vez si se excede el límite
                     old(self, ...)
                 end
                 return
@@ -174,7 +223,7 @@ local function toggleDamageRepeater()
             damageRepeaterBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
         end
         if repeatStatusLabel then
-            repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x"
+            repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x (máx " .. MAX_REPEAT_PER_SECOND .. "/s)"
             repeatStatusLabel.TextColor3 = Color3.fromRGB(80, 255, 80)
         end
     else
@@ -354,11 +403,7 @@ local function applyHitboxToPlayer(target)
         if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
             local rootPart = target.Character.HumanoidRootPart
             
-            -- Aplicar tamaño
             rootPart.Size = Vector3.new(HITBOX_SIZE, HITBOX_SIZE, HITBOX_SIZE)
-            
-            -- APLICAR TRANSPARENCIA CORRECTAMENTE
-            -- Usamos SmoothPlastic que maneja bien la transparencia
             rootPart.Transparency = HITBOX_TRANSPARENCY
             rootPart.Color = HITBOX_COLOR
             rootPart.BrickColor = BrickColor.new("Really red")
@@ -413,7 +458,6 @@ local function setHitboxSize(value)
     if HitboxEnabled then
         updateHitboxes()
     end
-    print("Tamaño cambiado a: " .. HITBOX_SIZE)
 end
 
 local function setHitboxTransparency(value)
@@ -424,7 +468,6 @@ local function setHitboxTransparency(value)
     if HitboxEnabled then
         updateHitboxes()
     end
-    print("Transparencia cambiada a: " .. HITBOX_TRANSPARENCY)
 end
 
 -- Funciones de movimiento
@@ -1184,7 +1227,7 @@ local function CreateConfigInterface()
     infoLabel.TextXAlignment = Enum.TextXAlignment.Center
     infoLabel.Parent = Content
 
-    -- CONECTAR EVENTOS DE LOS INPUTS DIRECTAMENTE
+    -- CONECTAR EVENTOS DE LOS INPUTS
     hitboxSizeInput.FocusLost:Connect(function(enter)
         if enter then
             local val = tonumber(hitboxSizeInput.Text)
@@ -1479,7 +1522,7 @@ if repeatInput then
             REPEAT_AMOUNT = math.floor(num)
             repeatInput.Text = tostring(REPEAT_AMOUNT)
             if repeatStatusLabel then
-                repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x"
+                repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x (máx " .. MAX_REPEAT_PER_SECOND .. "/s)"
                 if damageRepeaterEnabled then
                     repeatStatusLabel.TextColor3 = Color3.fromRGB(80, 255, 80)
                 else
@@ -1589,10 +1632,11 @@ setTPSpeed(3)
 setHitboxSize(30)
 setHitboxTransparency(0.5)
 
-print("=== HITBOX EXPANDER MEJORADO ===")
-print("✅ Hitbox con transparencia FUNCIONAL (0 = invisible, 1 = sólido)")
-print("✅ Material cambiado a SmoothPlastic para mejor transparencia")
-print("✅ Las cajas de texto actualizan el hitbox correctamente")
+print("=== HITBOX EXPANDER + MOVEMENT + ANTI-RAGDOLL + DAMAGE REPEATER OPTIMIZADO ===")
+print("✅ Damage Repeater OPTIMIZADO - Evita lag y deformación de personajes")
+print("✅ Límite de " .. MAX_REPEAT_PER_SECOND .. " repeticiones por segundo por jugador")
+print("✅ No repite animaciones ni eventos que causan deformación")
+print("✅ Pequeñas pausas entre repeticiones para no saturar")
+print("✅ Hitbox con transparencia funcional")
 print("✅ Lista de prohibidos cargada desde GitHub: " .. #PROHIBITED_USERS .. " usuarios")
-print("✅ Arrastre funcionando - Toca y arrastra la BARRA SUPERIOR")
-print("✅ Tecla K = Mostrar/Ocultar | E = Hitbox | R = TP Walk")
+print("✅ Teclas: K=Mostrar | E=Hitbox | R=TP Walk")
