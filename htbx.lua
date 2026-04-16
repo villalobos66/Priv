@@ -681,7 +681,7 @@ local function MakeDraggableWithHandle(frame, handle)
     end)
 end
 
--- ==================== INTERFAZ DE BOTONES PRINCIPALES ====================
+-- ==================== INTERFAZ DE BOTONES PRINCIPALES (65% del tamaño original) ====================
 local function CreateButtonsInterface()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ButtonsGUI"
@@ -690,15 +690,15 @@ local function CreateButtonsInterface()
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 320, 0, 85)
-    Frame.Position = UDim2.new(0.5, -160, 0.02, 0)
+    Frame.Size = UDim2.new(0, 208, 0, 55)  -- 320*0.65=208, 85*0.65≈55
+    Frame.Position = UDim2.new(0.5, -104, 0.02, 0)
     Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
     Frame.BackgroundTransparency = 0.05
     Frame.BorderSizePixel = 0
     Frame.Parent = ScreenGui
 
     local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 12)
+    UICorner.CornerRadius = UDim.new(0, 8)  -- 12*0.65≈8
     UICorner.Parent = Frame
 
     local UIStroke = Instance.new("UIStroke")
@@ -708,7 +708,7 @@ local function CreateButtonsInterface()
     UIStroke.Parent = Frame
 
     local TopBar = Instance.new("Frame")
-    TopBar.Size = UDim2.new(1, 0, 0, 35)
+    TopBar.Size = UDim2.new(1, 0, 0, 23)  -- 35*0.65≈23
     TopBar.Position = UDim2.new(0, 0, 0, 0)
     TopBar.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
     TopBar.BackgroundTransparency = 0.2
@@ -716,32 +716,32 @@ local function CreateButtonsInterface()
     TopBar.Parent = Frame
 
     local TopBarCorner = Instance.new("UICorner")
-    TopBarCorner.CornerRadius = UDim.new(0, 12)
+    TopBarCorner.CornerRadius = UDim.new(0, 8)
     TopBarCorner.Parent = TopBar
 
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(0.6, 0, 1, 0)
-    Title.Position = UDim2.new(0, 12, 0, 0)
+    Title.Position = UDim2.new(0, 8, 0, 0)
     Title.BackgroundTransparency = 1
-    Title.Text = "⋮⋮  PANEL DE CONTROL  ⋮⋮"
+    Title.Text = "⋮⋮ PANEL ⋮⋮"
     Title.TextColor3 = Color3.fromRGB(200, 200, 255)
-    Title.TextSize = 11
+    Title.TextSize = 8  -- 11*0.73≈8
     Title.Font = Enum.Font.GothamBold
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.Parent = TopBar
 
     local ConfigButton = Instance.new("TextButton")
-    ConfigButton.Size = UDim2.new(0, 35, 0, 30)
-    ConfigButton.Position = UDim2.new(1, -42, 0, 2.5)
+    ConfigButton.Size = UDim2.new(0, 23, 0, 20)  -- 35*0.65≈23, 30*0.65≈20
+    ConfigButton.Position = UDim2.new(1, -27, 0, 1.5)
     ConfigButton.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
     ConfigButton.Text = "⚙️"
     ConfigButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     ConfigButton.Font = Enum.Font.GothamBold
-    ConfigButton.TextSize = 16
+    ConfigButton.TextSize = 11  -- 16*0.7≈11
     ConfigButton.Parent = TopBar
 
     local configCorner = Instance.new("UICorner")
-    configCorner.CornerRadius = UDim.new(0, 6)
+    configCorner.CornerRadius = UDim.new(0, 4)
     configCorner.Parent = ConfigButton
 
     local ButtonsContainer = Instance.new("Frame")
@@ -757,12 +757,12 @@ local function CreateButtonsInterface()
     hitboxBtn.Text = "HIT\nOFF"
     hitboxBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     hitboxBtn.Font = Enum.Font.GothamBold
-    hitboxBtn.TextSize = 11
+    hitboxBtn.TextSize = 8
     hitboxBtn.TextWrapped = true
     hitboxBtn.Parent = ButtonsContainer
 
     local hitboxCorner = Instance.new("UICorner")
-    hitboxCorner.CornerRadius = UDim.new(0, 8)
+    hitboxCorner.CornerRadius = UDim.new(0, 5)
     hitboxCorner.Parent = hitboxBtn
 
     tpWalkBtn = Instance.new("TextButton")
@@ -772,12 +772,12 @@ local function CreateButtonsInterface()
     tpWalkBtn.Text = "TP\nOFF"
     tpWalkBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     tpWalkBtn.Font = Enum.Font.GothamBold
-    tpWalkBtn.TextSize = 11
+    tpWalkBtn.TextSize = 8
     tpWalkBtn.TextWrapped = true
     tpWalkBtn.Parent = ButtonsContainer
 
     local tpWalkCorner = Instance.new("UICorner")
-    tpWalkCorner.CornerRadius = UDim.new(0, 8)
+    tpWalkCorner.CornerRadius = UDim.new(0, 5)
     tpWalkCorner.Parent = tpWalkBtn
 
     antiRagdollBtn = Instance.new("TextButton")
@@ -787,12 +787,12 @@ local function CreateButtonsInterface()
     antiRagdollBtn.Text = "RAG\nOFF"
     antiRagdollBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     antiRagdollBtn.Font = Enum.Font.GothamBold
-    antiRagdollBtn.TextSize = 11
+    antiRagdollBtn.TextSize = 8
     antiRagdollBtn.TextWrapped = true
     antiRagdollBtn.Parent = ButtonsContainer
 
     local antiRagdollCorner = Instance.new("UICorner")
-    antiRagdollCorner.CornerRadius = UDim.new(0, 8)
+    antiRagdollCorner.CornerRadius = UDim.new(0, 5)
     antiRagdollCorner.Parent = antiRagdollBtn
 
     damageRepeaterBtn = Instance.new("TextButton")
@@ -802,12 +802,12 @@ local function CreateButtonsInterface()
     damageRepeaterBtn.Text = "REP\nOFF"
     damageRepeaterBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     damageRepeaterBtn.Font = Enum.Font.GothamBold
-    damageRepeaterBtn.TextSize = 11
+    damageRepeaterBtn.TextSize = 8
     damageRepeaterBtn.TextWrapped = true
     damageRepeaterBtn.Parent = ButtonsContainer
 
     local damageRepeaterCorner = Instance.new("UICorner")
-    damageRepeaterCorner.CornerRadius = UDim.new(0, 8)
+    damageRepeaterCorner.CornerRadius = UDim.new(0, 5)
     damageRepeaterCorner.Parent = damageRepeaterBtn
 
     MakeDraggableWithHandle(Frame, TopBar)
@@ -815,7 +815,7 @@ local function CreateButtonsInterface()
     return ScreenGui, Frame, ConfigButton
 end
 
--- ==================== INTERFAZ DE CONFIGURACIÓN ====================
+-- ==================== INTERFAZ DE CONFIGURACIÓN (70% del tamaño original) ====================
 local function CreateConfigInterface()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ConfigGUI"
@@ -825,15 +825,15 @@ local function CreateConfigInterface()
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 260, 0, 350)
-    Frame.Position = UDim2.new(0.5, -130, 0.5, -175)
+    Frame.Size = UDim2.new(0, 182, 0, 245)  -- 260*0.7=182, 350*0.7=245
+    Frame.Position = UDim2.new(0.5, -91, 0.5, -122.5)
     Frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     Frame.BorderSizePixel = 0
     Frame.ClipsDescendants = true
     Frame.Parent = ScreenGui
 
     local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 12)
+    UICorner.CornerRadius = UDim.new(0, 8)
     UICorner.Parent = Frame
 
     local UIStroke = Instance.new("UIStroke")
@@ -843,44 +843,44 @@ local function CreateConfigInterface()
     UIStroke.Parent = Frame
 
     local TitleBar = Instance.new("Frame")
-    TitleBar.Size = UDim2.new(1, 0, 0, 35)
+    TitleBar.Size = UDim2.new(1, 0, 0, 24)  -- 35*0.7≈24
     TitleBar.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
     TitleBar.BackgroundTransparency = 0.1
     TitleBar.BorderSizePixel = 0
     TitleBar.Parent = Frame
 
     local TitleCorner = Instance.new("UICorner")
-    TitleCorner.CornerRadius = UDim.new(0, 12)
+    TitleCorner.CornerRadius = UDim.new(0, 8)
     TitleCorner.Parent = TitleBar
 
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(0.7, 0, 1, 0)
-    Title.Position = UDim2.new(0, 12, 0, 0)
+    Title.Position = UDim2.new(0, 8, 0, 0)
     Title.BackgroundTransparency = 1
-    Title.Text = "⋮⋮ CONFIGURACIÓN ⋮⋮"
+    Title.Text = "⋮⋮ CONFIG ⋮⋮"
     Title.TextColor3 = Color3.fromRGB(255, 200, 100)
-    Title.TextSize = 11
+    Title.TextSize = 8
     Title.Font = Enum.Font.GothamBold
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.Parent = TitleBar
 
     local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Size = UDim2.new(0, 28, 0, 28)
-    CloseBtn.Position = UDim2.new(1, -34, 0, 3.5)
+    CloseBtn.Size = UDim2.new(0, 20, 0, 20)  -- 28*0.7≈20
+    CloseBtn.Position = UDim2.new(1, -24, 0, 2)
     CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
     CloseBtn.Text = "✕"
     CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    CloseBtn.TextSize = 16
+    CloseBtn.TextSize = 11
     CloseBtn.Font = Enum.Font.GothamBold
     CloseBtn.Parent = TitleBar
 
     local CloseCorner = Instance.new("UICorner")
-    CloseCorner.CornerRadius = UDim.new(0, 6)
+    CloseCorner.CornerRadius = UDim.new(0, 4)
     CloseCorner.Parent = CloseBtn
 
     local Content = Instance.new("Frame")
-    Content.Size = UDim2.new(1, 0, 1, -35)
-    Content.Position = UDim2.new(0, 0, 0, 35)
+    Content.Size = UDim2.new(1, 0, 1, -24)
+    Content.Position = UDim2.new(0, 0, 0, 24)
     Content.BackgroundTransparency = 1
     Content.Parent = Frame
 
@@ -888,91 +888,91 @@ local function CreateConfigInterface()
 
     -- Sección HITBOX
     local hitboxTitle = Instance.new("TextLabel")
-    hitboxTitle.Size = UDim2.new(0.9, 0, 0, 16)
+    hitboxTitle.Size = UDim2.new(0.9, 0, 0, 11)
     hitboxTitle.Position = UDim2.new(0.05, 0, yOffset, 0)
     hitboxTitle.BackgroundTransparency = 1
     hitboxTitle.Text = "HITBOX"
     hitboxTitle.TextColor3 = Color3.fromRGB(255, 200, 100)
     hitboxTitle.Font = Enum.Font.GothamBold
-    hitboxTitle.TextSize = 10
+    hitboxTitle.TextSize = 8
     hitboxTitle.TextXAlignment = Enum.TextXAlignment.Left
     hitboxTitle.Parent = Content
     yOffset = yOffset + 0.055
 
     -- Tamaño
     local sizeLabel = Instance.new("TextLabel")
-    sizeLabel.Size = UDim2.new(0.25, 0, 0, 20)
+    sizeLabel.Size = UDim2.new(0.3, 0, 0, 14)
     sizeLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
     sizeLabel.BackgroundTransparency = 1
     sizeLabel.Text = "Tamaño:"
     sizeLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     sizeLabel.Font = Enum.Font.Gotham
-    sizeLabel.TextSize = 9
+    sizeLabel.TextSize = 7
     sizeLabel.TextXAlignment = Enum.TextXAlignment.Left
     sizeLabel.Parent = Content
 
     local hitboxSizeInput = Instance.new("TextBox")
-    hitboxSizeInput.Size = UDim2.new(0.35, 0, 0, 22)
+    hitboxSizeInput.Size = UDim2.new(0.35, 0, 0, 15)
     hitboxSizeInput.Position = UDim2.new(0.32, 0, yOffset, 0)
     hitboxSizeInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     hitboxSizeInput.TextColor3 = Color3.fromRGB(255, 255, 255)
     hitboxSizeInput.Font = Enum.Font.Gotham
-    hitboxSizeInput.TextSize = 9
+    hitboxSizeInput.TextSize = 7
     hitboxSizeInput.PlaceholderText = "0.1-100"
     hitboxSizeInput.Text = "30"
     hitboxSizeInput.Parent = Content
 
     local sizeInputCorner = Instance.new("UICorner")
-    sizeInputCorner.CornerRadius = UDim.new(0, 5)
+    sizeInputCorner.CornerRadius = UDim.new(0, 4)
     sizeInputCorner.Parent = hitboxSizeInput
 
     hitboxSizeLabel = Instance.new("TextLabel")
-    hitboxSizeLabel.Size = UDim2.new(0.25, 0, 0, 20)
+    hitboxSizeLabel.Size = UDim2.new(0.25, 0, 0, 14)
     hitboxSizeLabel.Position = UDim2.new(0.7, 0, yOffset, 0)
     hitboxSizeLabel.BackgroundTransparency = 1
     hitboxSizeLabel.Text = "Tam: 30"
     hitboxSizeLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     hitboxSizeLabel.Font = Enum.Font.Gotham
-    hitboxSizeLabel.TextSize = 9
+    hitboxSizeLabel.TextSize = 7
     hitboxSizeLabel.TextXAlignment = Enum.TextXAlignment.Left
     hitboxSizeLabel.Parent = Content
-    yOffset = yOffset + 0.055
+    yOffset = yOffset + 0.06
 
     -- Transparencia
     local transLabel = Instance.new("TextLabel")
-    transLabel.Size = UDim2.new(0.25, 0, 0, 20)
+    transLabel.Size = UDim2.new(0.3, 0, 0, 14)
     transLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
     transLabel.BackgroundTransparency = 1
     transLabel.Text = "Transparencia:"
     transLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     transLabel.Font = Enum.Font.Gotham
-    transLabel.TextSize = 9
+    transLabel.TextSize = 7
     transLabel.TextXAlignment = Enum.TextXAlignment.Left
     transLabel.Parent = Content
 
     local hitboxTransparencyInput = Instance.new("TextBox")
-    hitboxTransparencyInput.Size = UDim2.new(0.35, 0, 0, 22)
+    hitboxTransparencyInput.Size = UDim2.new(0.35, 0, 0, 15)
     hitboxTransparencyInput.Position = UDim2.new(0.32, 0, yOffset, 0)
     hitboxTransparencyInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     hitboxTransparencyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
     hitboxTransparencyInput.Font = Enum.Font.Gotham
-    hitboxTransparencyInput.TextSize = 9
+    hitboxTransparencyInput.TextSize = 7
     hitboxTransparencyInput.PlaceholderText = "0-1"
     hitboxTransparencyInput.Text = "0.5"
     hitboxTransparencyInput.Parent = Content
 
     local transInputCorner = Instance.new("UICorner")
-    transInputCorner.CornerRadius = UDim.new(0, 5)
+    transInputCorner.CornerRadius = UDim.new(0, 4)
     transInputCorner.Parent = hitboxTransparencyInput
 
     hitboxTransparencyLabel = Instance.new("TextLabel")
-    hitboxTransparencyLabel.Size = UDim2.new(0.25, 0, 0, 20)
+    hitboxTransparencyLabel.Size = UDim2.new(0.25, 0, 0, 14)
     hitboxTransparencyLabel.Position = UDim2.new(0.7, 0, yOffset, 0)
     hitboxTransparencyLabel.BackgroundTransparency = 1
     hitboxTransparencyLabel.Text = "Trans: 0.5"
     hitboxTransparencyLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     hitboxTransparencyLabel.Font = Enum.Font.Gotham
-    hitboxTransparencyLabel.TextSize = 9
+    hitboxTransparencyLabel.TextSize = 7
     hitboxTransparencyLabel.TextXAlignment = Enum.TextXAlignment.Left
     hitboxTransparencyLabel.Parent = Content
     yOffset = yOffset + 0.06
@@ -988,19 +988,19 @@ local function CreateConfigInterface()
 
     -- Sección LOOP WALKSPEED
     local wsTitle = Instance.new("TextLabel")
-    wsTitle.Size = UDim2.new(0.9, 0, 0, 16)
+    wsTitle.Size = UDim2.new(0.9, 0, 0, 11)
     wsTitle.Position = UDim2.new(0.05, 0, yOffset, 0)
     wsTitle.BackgroundTransparency = 1
     wsTitle.Text = "LOOP WALKSPEED"
     wsTitle.TextColor3 = Color3.fromRGB(255, 200, 100)
     wsTitle.Font = Enum.Font.GothamBold
-    wsTitle.TextSize = 10
+    wsTitle.TextSize = 8
     wsTitle.TextXAlignment = Enum.TextXAlignment.Left
     wsTitle.Parent = Content
     yOffset = yOffset + 0.055
 
     local wsContainer = Instance.new("Frame")
-    wsContainer.Size = UDim2.new(0.9, 0, 0, 30)
+    wsContainer.Size = UDim2.new(0.9, 0, 0, 21)
     wsContainer.Position = UDim2.new(0.05, 0, yOffset, 0)
     wsContainer.BackgroundTransparency = 1
     wsContainer.Parent = Content
@@ -1012,12 +1012,12 @@ local function CreateConfigInterface()
     walkSpeedBtn.Text = "LOOP\nOFF"
     walkSpeedBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     walkSpeedBtn.Font = Enum.Font.GothamBold
-    walkSpeedBtn.TextSize = 9
+    walkSpeedBtn.TextSize = 7
     walkSpeedBtn.TextWrapped = true
     walkSpeedBtn.Parent = wsContainer
 
     local wsBtnCorner = Instance.new("UICorner")
-    wsBtnCorner.CornerRadius = UDim.new(0, 6)
+    wsBtnCorner.CornerRadius = UDim.new(0, 4)
     wsBtnCorner.Parent = walkSpeedBtn
 
     local walkSpeedInput = Instance.new("TextBox")
@@ -1026,24 +1026,24 @@ local function CreateConfigInterface()
     walkSpeedInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     walkSpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
     walkSpeedInput.Font = Enum.Font.Gotham
-    walkSpeedInput.TextSize = 9
+    walkSpeedInput.TextSize = 7
     walkSpeedInput.PlaceholderText = "Velocidad"
     walkSpeedInput.Text = "16"
     walkSpeedInput.Parent = wsContainer
 
     local wsInputCorner = Instance.new("UICorner")
-    wsInputCorner.CornerRadius = UDim.new(0, 5)
+    wsInputCorner.CornerRadius = UDim.new(0, 4)
     wsInputCorner.Parent = walkSpeedInput
     yOffset = yOffset + 0.07
 
     walkSpeedValueLabel = Instance.new("TextLabel")
-    walkSpeedValueLabel.Size = UDim2.new(0.9, 0, 0, 16)
+    walkSpeedValueLabel.Size = UDim2.new(0.9, 0, 0, 11)
     walkSpeedValueLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
     walkSpeedValueLabel.BackgroundTransparency = 1
     walkSpeedValueLabel.Text = "Vel actual: 16"
     walkSpeedValueLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     walkSpeedValueLabel.Font = Enum.Font.Gotham
-    walkSpeedValueLabel.TextSize = 8
+    walkSpeedValueLabel.TextSize = 6
     walkSpeedValueLabel.TextXAlignment = Enum.TextXAlignment.Left
     walkSpeedValueLabel.Parent = Content
     yOffset = yOffset + 0.05
@@ -1059,51 +1059,51 @@ local function CreateConfigInterface()
 
     -- Sección TP WALK
     local tpTitle = Instance.new("TextLabel")
-    tpTitle.Size = UDim2.new(0.9, 0, 0, 16)
+    tpTitle.Size = UDim2.new(0.9, 0, 0, 11)
     tpTitle.Position = UDim2.new(0.05, 0, yOffset, 0)
     tpTitle.BackgroundTransparency = 1
     tpTitle.Text = "TP WALK"
     tpTitle.TextColor3 = Color3.fromRGB(255, 200, 100)
     tpTitle.Font = Enum.Font.GothamBold
-    tpTitle.TextSize = 10
+    tpTitle.TextSize = 8
     tpTitle.TextXAlignment = Enum.TextXAlignment.Left
     tpTitle.Parent = Content
     yOffset = yOffset + 0.055
 
     local tpLabel = Instance.new("TextLabel")
-    tpLabel.Size = UDim2.new(0.25, 0, 0, 20)
+    tpLabel.Size = UDim2.new(0.3, 0, 0, 14)
     tpLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
     tpLabel.BackgroundTransparency = 1
     tpLabel.Text = "Velocidad TP:"
     tpLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     tpLabel.Font = Enum.Font.Gotham
-    tpLabel.TextSize = 9
+    tpLabel.TextSize = 7
     tpLabel.TextXAlignment = Enum.TextXAlignment.Left
     tpLabel.Parent = Content
 
     local tpSpeedInput = Instance.new("TextBox")
-    tpSpeedInput.Size = UDim2.new(0.35, 0, 0, 22)
+    tpSpeedInput.Size = UDim2.new(0.35, 0, 0, 15)
     tpSpeedInput.Position = UDim2.new(0.32, 0, yOffset, 0)
     tpSpeedInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     tpSpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
     tpSpeedInput.Font = Enum.Font.Gotham
-    tpSpeedInput.TextSize = 9
+    tpSpeedInput.TextSize = 7
     tpSpeedInput.PlaceholderText = "0.01-50"
     tpSpeedInput.Text = "3"
     tpSpeedInput.Parent = Content
 
     local tpInputCorner = Instance.new("UICorner")
-    tpInputCorner.CornerRadius = UDim.new(0, 5)
+    tpInputCorner.CornerRadius = UDim.new(0, 4)
     tpInputCorner.Parent = tpSpeedInput
 
     tpSpeedValueLabel = Instance.new("TextLabel")
-    tpSpeedValueLabel.Size = UDim2.new(0.25, 0, 0, 20)
+    tpSpeedValueLabel.Size = UDim2.new(0.25, 0, 0, 14)
     tpSpeedValueLabel.Position = UDim2.new(0.7, 0, yOffset, 0)
     tpSpeedValueLabel.BackgroundTransparency = 1
     tpSpeedValueLabel.Text = "Vel TP: 3"
     tpSpeedValueLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     tpSpeedValueLabel.Font = Enum.Font.Gotham
-    tpSpeedValueLabel.TextSize = 9
+    tpSpeedValueLabel.TextSize = 7
     tpSpeedValueLabel.TextXAlignment = Enum.TextXAlignment.Left
     tpSpeedValueLabel.Parent = Content
     yOffset = yOffset + 0.06
@@ -1119,52 +1119,52 @@ local function CreateConfigInterface()
 
     -- Sección DAMAGE REPEATER
     local repeaterTitle = Instance.new("TextLabel")
-    repeaterTitle.Size = UDim2.new(0.9, 0, 0, 16)
+    repeaterTitle.Size = UDim2.new(0.9, 0, 0, 11)
     repeaterTitle.Position = UDim2.new(0.05, 0, yOffset, 0)
     repeaterTitle.BackgroundTransparency = 1
     repeaterTitle.Text = "DAMAGE REPEATER"
     repeaterTitle.TextColor3 = Color3.fromRGB(255, 200, 100)
     repeaterTitle.Font = Enum.Font.GothamBold
-    repeaterTitle.TextSize = 10
+    repeaterTitle.TextSize = 8
     repeaterTitle.TextXAlignment = Enum.TextXAlignment.Left
     repeaterTitle.Parent = Content
     yOffset = yOffset + 0.055
 
     local repeatLabel = Instance.new("TextLabel")
-    repeatLabel.Size = UDim2.new(0.35, 0, 0, 20)
+    repeatLabel.Size = UDim2.new(0.4, 0, 0, 14)
     repeatLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
     repeatLabel.BackgroundTransparency = 1
     repeatLabel.Text = "Repeticiones:"
     repeatLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     repeatLabel.Font = Enum.Font.Gotham
-    repeatLabel.TextSize = 9
+    repeatLabel.TextSize = 7
     repeatLabel.TextXAlignment = Enum.TextXAlignment.Left
     repeatLabel.Parent = Content
 
     repeatInput = Instance.new("TextBox")
-    repeatInput.Size = UDim2.new(0.35, 0, 0, 26)
+    repeatInput.Size = UDim2.new(0.35, 0, 0, 18)
     repeatInput.Position = UDim2.new(0.45, 0, yOffset - 0.002, 0)
     repeatInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     repeatInput.TextColor3 = Color3.fromRGB(255, 255, 255)
     repeatInput.Font = Enum.Font.Gotham
-    repeatInput.TextSize = 10
+    repeatInput.TextSize = 8
     repeatInput.PlaceholderText = "1-100"
     repeatInput.Text = tostring(REPEAT_AMOUNT)
     repeatInput.Parent = Content
 
     local repeatInputCorner = Instance.new("UICorner")
-    repeatInputCorner.CornerRadius = UDim.new(0, 5)
+    repeatInputCorner.CornerRadius = UDim.new(0, 4)
     repeatInputCorner.Parent = repeatInput
     yOffset = yOffset + 0.07
 
     repeatStatusLabel = Instance.new("TextLabel")
-    repeatStatusLabel.Size = UDim2.new(0.9, 0, 0, 16)
+    repeatStatusLabel.Size = UDim2.new(0.9, 0, 0, 11)
     repeatStatusLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
     repeatStatusLabel.BackgroundTransparency = 1
-    repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x (solo golpes)"
+    repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x"
     repeatStatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     repeatStatusLabel.Font = Enum.Font.Gotham
-    repeatStatusLabel.TextSize = 8
+    repeatStatusLabel.TextSize = 6
     repeatStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
     repeatStatusLabel.Parent = Content
     yOffset = yOffset + 0.05
@@ -1180,60 +1180,60 @@ local function CreateConfigInterface()
 
     -- Sección TARGET
     local targetTitle = Instance.new("TextLabel")
-    targetTitle.Size = UDim2.new(0.9, 0, 0, 16)
+    targetTitle.Size = UDim2.new(0.9, 0, 0, 11)
     targetTitle.Position = UDim2.new(0.05, 0, yOffset, 0)
     targetTitle.BackgroundTransparency = 1
     targetTitle.Text = "TARGET"
     targetTitle.TextColor3 = Color3.fromRGB(255, 200, 100)
     targetTitle.Font = Enum.Font.GothamBold
-    targetTitle.TextSize = 10
+    targetTitle.TextSize = 8
     targetTitle.TextXAlignment = Enum.TextXAlignment.Left
     targetTitle.Parent = Content
     yOffset = yOffset + 0.055
 
     targetBox = Instance.new("TextBox")
-    targetBox.Size = UDim2.new(0.9, 0, 0, 26)
+    targetBox.Size = UDim2.new(0.9, 0, 0, 18)
     targetBox.Position = UDim2.new(0.05, 0, yOffset, 0)
     targetBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     targetBox.TextColor3 = Color3.fromRGB(255, 255, 255)
     targetBox.Font = Enum.Font.Gotham
-    targetBox.TextSize = 10
+    targetBox.TextSize = 8
     targetBox.PlaceholderText = "Nombre (3+ letras)"
     targetBox.Text = ""
     targetBox.Parent = Content
 
     local targetCorner = Instance.new("UICorner")
-    targetCorner.CornerRadius = UDim.new(0, 5)
+    targetCorner.CornerRadius = UDim.new(0, 4)
     targetCorner.Parent = targetBox
     yOffset = yOffset + 0.07
 
     targetStatus = Instance.new("TextLabel")
-    targetStatus.Size = UDim2.new(0.9, 0, 0, 14)
+    targetStatus.Size = UDim2.new(0.9, 0, 0, 10)
     targetStatus.Position = UDim2.new(0.05, 0, yOffset, 0)
     targetStatus.BackgroundTransparency = 1
     targetStatus.Text = "Objetivo: TODOS"
     targetStatus.TextColor3 = Color3.fromRGB(120, 200, 255)
     targetStatus.Font = Enum.Font.Gotham
-    targetStatus.TextSize = 8
+    targetStatus.TextSize = 6
     targetStatus.TextXAlignment = Enum.TextXAlignment.Left
     targetStatus.Parent = Content
     yOffset = yOffset + 0.045
 
     searchResult = Instance.new("TextLabel")
-    searchResult.Size = UDim2.new(0.9, 0, 0, 14)
+    searchResult.Size = UDim2.new(0.9, 0, 0, 10)
     searchResult.Position = UDim2.new(0.05, 0, yOffset, 0)
     searchResult.BackgroundTransparency = 1
     searchResult.Text = "Presiona Enter"
     searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
     searchResult.Font = Enum.Font.Gotham
-    searchResult.TextSize = 8
+    searchResult.TextSize = 6
     searchResult.TextXAlignment = Enum.TextXAlignment.Left
     searchResult.Parent = Content
     yOffset = yOffset + 0.05
 
     -- Botones
     local btnContainer = Instance.new("Frame")
-    btnContainer.Size = UDim2.new(0.9, 0, 0, 26)
+    btnContainer.Size = UDim2.new(0.9, 0, 0, 18)
     btnContainer.Position = UDim2.new(0.05, 0, yOffset, 0)
     btnContainer.BackgroundTransparency = 1
     btnContainer.Parent = Content
@@ -1245,11 +1245,11 @@ local function CreateConfigInterface()
     clearTargetBtn.Text = "Limpiar"
     clearTargetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     clearTargetBtn.Font = Enum.Font.GothamBold
-    clearTargetBtn.TextSize = 9
+    clearTargetBtn.TextSize = 7
     clearTargetBtn.Parent = btnContainer
 
     local clearCorner = Instance.new("UICorner")
-    clearCorner.CornerRadius = UDim.new(0, 5)
+    clearCorner.CornerRadius = UDim.new(0, 4)
     clearCorner.Parent = clearTargetBtn
 
     closestBtn = Instance.new("TextButton")
@@ -1259,23 +1259,23 @@ local function CreateConfigInterface()
     closestBtn.Text = "Más Cercano"
     closestBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     closestBtn.Font = Enum.Font.GothamBold
-    closestBtn.TextSize = 9
+    closestBtn.TextSize = 7
     closestBtn.Parent = btnContainer
 
     local closestCorner = Instance.new("UICorner")
-    closestCorner.CornerRadius = UDim.new(0, 5)
+    closestCorner.CornerRadius = UDim.new(0, 4)
     closestCorner.Parent = closestBtn
     yOffset = yOffset + 0.07
 
     -- Info
     local infoLabel = Instance.new("TextLabel")
-    infoLabel.Size = UDim2.new(0.9, 0, 0, 14)
+    infoLabel.Size = UDim2.new(0.9, 0, 0, 10)
     infoLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
     infoLabel.BackgroundTransparency = 1
     infoLabel.Text = "K=Mostrar | E=Hitbox | R=TP"
     infoLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     infoLabel.Font = Enum.Font.Gotham
-    infoLabel.TextSize = 8
+    infoLabel.TextSize = 6
     infoLabel.TextXAlignment = Enum.TextXAlignment.Center
     infoLabel.Parent = Content
 
@@ -1285,14 +1285,14 @@ local function CreateConfigInterface()
             local val = tonumber(hitboxSizeInput.Text)
             if val and val >= 0.1 and val <= 100 then
                 setHitboxSize(val)
-                searchResult.Text = "✓ Tamaño cambiado a " .. val
+                searchResult.Text = "✓ Tamaño cambiado"
                 searchResult.TextColor3 = Color3.fromRGB(80, 255, 80)
                 task.wait(1.5)
                 searchResult.Text = "Presiona Enter"
                 searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
             else
                 hitboxSizeInput.Text = tostring(HITBOX_SIZE)
-                searchResult.Text = "✗ Tam inválido (0.1-100)"
+                searchResult.Text = "✗ Tam inválido"
                 searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
                 task.wait(2)
                 searchResult.Text = "Presiona Enter"
@@ -1306,14 +1306,14 @@ local function CreateConfigInterface()
             local val = tonumber(hitboxTransparencyInput.Text)
             if val and val >= 0 and val <= 1 then
                 setHitboxTransparency(val)
-                searchResult.Text = "✓ Transparencia cambiada a " .. val
+                searchResult.Text = "✓ Transparencia cambiada"
                 searchResult.TextColor3 = Color3.fromRGB(80, 255, 80)
                 task.wait(1.5)
                 searchResult.Text = "Presiona Enter"
                 searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
             else
                 hitboxTransparencyInput.Text = tostring(HITBOX_TRANSPARENCY)
-                searchResult.Text = "✗ Trans inválida (0-1)"
+                searchResult.Text = "✗ Trans inválida"
                 searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
                 task.wait(2)
                 searchResult.Text = "Presiona Enter"
@@ -1327,14 +1327,14 @@ local function CreateConfigInterface()
             local val = tonumber(walkSpeedInput.Text)
             if val and val >= 0.1 and val <= 500 then
                 setWalkSpeed(val)
-                searchResult.Text = "✓ Velocidad cambiada a " .. val
+                searchResult.Text = "✓ Velocidad cambiada"
                 searchResult.TextColor3 = Color3.fromRGB(80, 255, 80)
                 task.wait(1.5)
                 searchResult.Text = "Presiona Enter"
                 searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
             else
                 walkSpeedInput.Text = tostring(WalkSpeedValue)
-                searchResult.Text = "✗ Vel inválida (0.1-500)"
+                searchResult.Text = "✗ Vel inválida"
                 searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
                 task.wait(2)
                 searchResult.Text = "Presiona Enter"
@@ -1348,14 +1348,14 @@ local function CreateConfigInterface()
             local val = tonumber(tpSpeedInput.Text)
             if val and val >= 0.01 and val <= 50 then
                 setTPSpeed(val)
-                searchResult.Text = "✓ Vel TP cambiada a " .. val
+                searchResult.Text = "✓ Vel TP cambiada"
                 searchResult.TextColor3 = Color3.fromRGB(80, 255, 80)
                 task.wait(1.5)
                 searchResult.Text = "Presiona Enter"
                 searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
             else
                 tpSpeedInput.Text = tostring(TPSpeedValue)
-                searchResult.Text = "✗ Vel TP inválida (0.01-50)"
+                searchResult.Text = "✗ Vel TP inválida"
                 searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
                 task.wait(2)
                 searchResult.Text = "Presiona Enter"
