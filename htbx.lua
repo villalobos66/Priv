@@ -2,7 +2,6 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
-local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 
@@ -12,9 +11,52 @@ local AntiRagdollEnabled = false
 local targetPlayer = nil
 local exactTargetName = ""
 
--- Configuración fija del hitbox
+-- ==================== LISTA DE PROHIBIDOS (DESDE GITHUB) ====================
+local PROHIBITED_USERS = {}
+
+-- Cargar lista desde GitHub
+local function cargarListaProhibidos()
+    local success, resultado = pcall(function()
+        local url = "https://raw.githubusercontent.com/villalobos66/personalizado/main/LisPro.lua"
+        local listaRaw = game:HttpGet(url)
+        local listaFunc = loadstring(listaRaw)
+        if listaFunc then
+            return listaFunc()
+        end
+        return nil
+    end)
+    return success and resultado or nil
+end
+
+-- Cargar la lista
+local listaExterna = cargarListaProhibidos()
+if listaExterna and type(listaExterna) == "table" and #listaExterna > 0 then
+    PROHIBITED_USERS = listaExterna
+    print("✅ Lista de prohibidos cargada desde GitHub. Total: " .. #PROHIBITED_USERS .. " usuarios")
+else
+    PROHIBITED_USERS = {}
+    print("⚠️ No se pudo cargar lista de prohibidos. Lista vacía.")
+end
+
+-- Función para verificar si un jugador está prohibido
+local function isPlayerProhibited(playerObj)
+    if not playerObj then return false end
+    if playerObj == player then return false end
+    local playerNameLower = playerObj.Name:lower()
+    local displayNameLower = playerObj.DisplayName:lower()
+    for _, prohibitedName in ipairs(PROHIBITED_USERS) do
+        local prohibitedLower = tostring(prohibitedName):lower()
+        if playerNameLower == prohibitedLower or displayNameLower == prohibitedLower then
+            return true
+        end
+    end
+    return false
+end
+
+-- ==================== CONFIGURACIÓN ====================
 local HITBOX_SIZE = 30
-local HITBOX_TRANSPARENCY = 1
+local HITBOX_TRANSPARENCY = 0.5
+local HITBOX_COLOR = Color3.fromRGB(255, 0, 0)
 
 -- Variables para WalkSpeed
 local WalkSpeedEnabled = false
@@ -26,23 +68,177 @@ local TPWalkEnabled = false
 local TPSpeedValue = 3
 local tpWalkConnection = nil
 
--- ==================== DAMAGE REPEATER ====================
+-- ==================== DAMAGE REPEATER OPTIMIZADO (SOLO GOLPES) ====================
 local REPEAT_AMOUNT = 26
 local damageRepeaterEnabled = false
 local mt = nil
 local old = nil
-local isDamageRepeaterActive = false
+local isMetatableHooked = false
 
--- Excepciones - eventos que NO se repetirán
-local exceptions = {
-    "SayMessageRequest",
-    "MeleeUpdateEvent", 
-    "NinjaBombEvent",
-    "BulletUpdateEvent"
+-- Nombres de eventos que SON golpes (SOLO estos se repetirán)
+local DAMAGE_EVENTS = {
+    "Hit",
+    "Damage",
+    "DealDamage",
+    "TakeDamage",
+    "MeleeHit",
+    "Punch",
+    "Kick",
+    "Attack",
+    "SwordHit",
+    "Swing",
+    "Strike"
 }
 
+-- Nombres de eventos que NUNCA se repetirán (para evitar deformación)
+local IGNORED_EVENTS = {
+    "SayMessageRequest",
+    "MeleeUpdateEvent",
+    "NinjaBombEvent",
+    "BulletUpdateEvent",
+    "UpdateAnimation",
+    "SetAnimation",
+    "MoveEvent",
+    "JumpEvent",
+    "SitEvent",
+    "Emote",
+    "Dance",
+    "Pose",
+    "AnimationEvent",
+    "CharacterAdded",
+    "HumanoidDescription",
+    "LoadCharacter",
+    "Respawn",
+    "Teleport",
+    "UpdateMotor6D",
+    "SetMotor6D",
+    "Ragdoll",
+    "Fall"
+}
+
+-- Variables para limitar repeticiones
+local lastRepeatTime = {}
+local MAX_REPEAT_PER_SECOND = 15
+
+-- Limpiar caché cada 10 segundos
+task.spawn(function()
+    while true do
+        task.wait(10)
+        local now = tick()
+        for name, time in pairs(lastRepeatTime) do
+            if now - time > 5 then
+                lastRepeatTime[name] = nil
+            end
+        end
+    end
+end)
+
+-- Función para obtener el nombre del jugador objetivo desde los argumentos
+local function getTargetPlayerFromArgs(...)
+    for i = 1, select("#", ...) do
+        local arg = select(i, ...)
+        if type(arg) == "string" then
+            local target = Players:FindFirstChild(arg)
+            if target then
+                return target
+            end
+        elseif type(arg) == "table" and arg.Name then
+            local target = Players:FindFirstChild(arg.Name)
+            if target then
+                return target
+            end
+        elseif type(arg) == "Instance" and arg:IsA("Player") then
+            return arg
+        end
+    end
+    return nil
+end
+
+-- Función para verificar si es un evento de daño
+local function isDamageEvent(eventName)
+    local lowerName = eventName:lower()
+    for _, damageEvent in ipairs(DAMAGE_EVENTS) do
+        if lowerName == damageEvent:lower() or lowerName:find(damageEvent:lower()) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Función para verificar si es un evento ignorado
+local function isIgnoredEvent(eventName)
+    local lowerName = eventName:lower()
+    for _, ignoredEvent in ipairs(IGNORED_EVENTS) do
+        if lowerName == ignoredEvent:lower() or lowerName:find(ignoredEvent:lower()) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Función para verificar límite de tasa
+local function shouldRepeat(targetPlayerName)
+    if not targetPlayerName then return true end
+    local now = tick()
+    local lastTime = lastRepeatTime[targetPlayerName] or 0
+    if now - lastTime < (1 / MAX_REPEAT_PER_SECOND) then
+        return false
+    end
+    lastRepeatTime[targetPlayerName] = now
+    return true
+end
+
+-- Función que crea el nuevo __namecall
+local function createNamecallHandler()
+    return function(self, ...)
+        local method = getnamecallmethod()
+        local eventName = self.Name
+        
+        -- IGNORAR COMPLETAMENTE eventos problemáticos (no se repiten NUNCA)
+        if isIgnoredEvent(eventName) then
+            return old(self, ...)
+        end
+        
+        if method == "FireServer" or method == "InvokeServer" then
+            -- SOLO repetir si es un evento de daño
+            if isDamageEvent(eventName) then
+                -- Obtener el jugador objetivo
+                local targetPlayerObj = getTargetPlayerFromArgs(...)
+                
+                -- Verificar si el objetivo está prohibido
+                if targetPlayerObj and isPlayerProhibited(targetPlayerObj) then
+                    -- Si está prohibido, ejecutar el daño solo una vez (sin repetir)
+                    return old(self, ...)
+                end
+                
+                -- Obtener nombre para límite de tasa
+                local targetName = targetPlayerObj and targetPlayerObj.Name or nil
+                
+                -- Verificar límite de tasa
+                if shouldRepeat(targetName) then
+                    -- Repetir el daño
+                    for i = 1, REPEAT_AMOUNT do
+                        old(self, ...)
+                        -- Pequeña pausa para evitar saturación
+                        if i % 5 == 0 then
+                            task.wait(0.005)
+                        end
+                    end
+                else
+                    -- Si excede límite, solo ejecutar una vez
+                    old(self, ...)
+                end
+                return
+            end
+        end
+        
+        -- Para cualquier otro evento, ejecutar normalmente sin repetir
+        return old(self, ...)
+    end
+end
+
 local function EnableDamageRepeater()
-    if isDamageRepeaterActive then
+    if isMetatableHooked then
         return
     end
     
@@ -52,46 +248,18 @@ local function EnableDamageRepeater()
         setreadonly(mt, false)
     end
     
-    if not old then
-        old = mt.__namecall
-    end
-    
-    mt.__namecall = function(self, ...)
-        local method = getnamecallmethod()
-        
-        for _, exception in pairs(exceptions) do
-            if self.Name == exception then
-                return old(self, ...)
-            end
-        end
-        
-        if method == "FireServer" or method == "InvokeServer" then
-            if string.find(self.Name:lower(), "hit") or 
-               string.find(self.Name:lower(), "damage") or
-               string.find(self.Name:lower(), "attack") or
-               string.find(self.Name:lower(), "melee") then
-                
-                for i = 1, REPEAT_AMOUNT do
-                    old(self, ...)
-                end
-                return
-            end
-        end
-        
-        return old(self, ...)
-    end
-    
-    isDamageRepeaterActive = true
+    mt.__namecall = createNamecallHandler()
+    isMetatableHooked = true
 end
 
 local function DisableDamageRepeater()
-    if not isDamageRepeaterActive then
+    if not isMetatableHooked then
         return
     end
     
     if mt and old then
         mt.__namecall = old
-        isDamageRepeaterActive = false
+        isMetatableHooked = false
     end
 end
 
@@ -106,9 +274,10 @@ local function toggleDamageRepeater()
             damageRepeaterBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
         end
         if repeatStatusLabel then
-            repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x"
+            repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x (solo golpes)"
             repeatStatusLabel.TextColor3 = Color3.fromRGB(80, 255, 80)
         end
+        print("✅ Damage Repeater ACTIVADO - Los jugadores prohibidos NO serán afectados")
     else
         DisableDamageRepeater()
         if damageRepeaterBtn then
@@ -120,6 +289,7 @@ local function toggleDamageRepeater()
             repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x"
             repeatStatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
         end
+        print("❌ Damage Repeater DESACTIVADO")
     end
 end
 
@@ -235,20 +405,20 @@ local function findPlayerByPartialName(inputText)
     end
     local searchText = inputText:lower():gsub("%s+", "")
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player then
+        if p ~= player and not isPlayerProhibited(p) then
             if p.Name:lower() == searchText then return p, p.Name end
             if p.DisplayName:lower() == searchText then return p, p.DisplayName end
         end
     end
     if #searchText >= 3 then
         for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player then
+            if p ~= player and not isPlayerProhibited(p) then
                 if p.Name:lower():sub(1, #searchText) == searchText then return p, p.Name end
                 if p.DisplayName:lower():sub(1, #searchText) == searchText then return p, p.DisplayName end
             end
         end
         for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player then
+            if p ~= player and not isPlayerProhibited(p) then
                 if p.Name:lower():find(searchText, 1, true) then return p, p.Name end
                 if p.DisplayName:lower():find(searchText, 1, true) then return p, p.DisplayName end
             end
@@ -258,7 +428,7 @@ local function findPlayerByPartialName(inputText)
     return false, "No encontrado"
 end
 
--- Funciones del hitbox
+-- ==================== HITBOX CON TRANSPARENCIA FUNCIONAL ====================
 local function resetHitbox(target)
     pcall(function()
         if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
@@ -268,13 +438,14 @@ local function resetHitbox(target)
             rootPart.BrickColor = BrickColor.new("Medium stone grey")
             rootPart.Material = Enum.Material.Plastic
             rootPart.CanCollide = false
+            rootPart.Color = Color3.fromRGB(255, 255, 255)
         end
     end)
 end
 
 local function resetAllHitboxes()
     for _, v in pairs(Players:GetPlayers()) do
-        if v ~= player then
+        if v ~= player and not isPlayerProhibited(v) then
             resetHitbox(v)
         end
     end
@@ -286,21 +457,23 @@ local function applyHitboxToPlayer(target)
             local rootPart = target.Character.HumanoidRootPart
             rootPart.Size = Vector3.new(HITBOX_SIZE, HITBOX_SIZE, HITBOX_SIZE)
             rootPart.Transparency = HITBOX_TRANSPARENCY
-            rootPart.BrickColor = BrickColor.new("Really black")
-            rootPart.Material = Enum.Material.Neon
+            rootPart.Color = HITBOX_COLOR
+            rootPart.BrickColor = BrickColor.new("Really red")
+            rootPart.Material = Enum.Material.SmoothPlastic
             rootPart.CanCollide = false
+            rootPart.Reflectance = 0
         end
     end)
 end
 
 local function shouldHitPlayer(playerObj)
     if playerObj == player then return false end
+    if isPlayerProhibited(playerObj) then return false end
     if not playerObj.Character then return false end
     if not playerObj.Character:FindFirstChild("HumanoidRootPart") then return false end
     return true
 end
 
--- Funcion para actualizar hitboxes
 local function updateHitboxes()
     if not HitboxEnabled then
         resetAllHitboxes()
@@ -310,11 +483,13 @@ local function updateHitboxes()
     if targetPlayer then
         if shouldHitPlayer(targetPlayer) then
             for _, v in pairs(Players:GetPlayers()) do
-                if v ~= player and v ~= targetPlayer then
+                if v ~= player and v ~= targetPlayer and not isPlayerProhibited(v) then
                     resetHitbox(v)
                 end
             end
             applyHitboxToPlayer(targetPlayer)
+        else
+            resetHitbox(targetPlayer)
         end
     else
         for _, v in pairs(Players:GetPlayers()) do
@@ -327,7 +502,6 @@ local function updateHitboxes()
     end
 end
 
--- Funciones para modificar hitbox
 local function setHitboxSize(value)
     HITBOX_SIZE = tonumber(value)
     if hitboxSizeLabel then
@@ -470,74 +644,39 @@ local function setTPWalkEnabled(enabled)
     end
 end
 
--- ==================== SISTEMA DE ARRASTRE UNIVERSAL ====================
-local function MakeDraggable(frame, dragHandle)
-    local dragHandleFrame = dragHandle or frame
+-- ==================== FUNCIÓN DE ARRASTRE ====================
+local function MakeDraggableWithHandle(frame, handle)
     local dragging = false
     local dragStartPos = nil
     local frameStartPos = nil
-    local dragConnection = nil
-    local dragEndConnection = nil
     
-    local function startDrag(input)
-        dragging = true
-        dragStartPos = input.Position
-        frameStartPos = frame.Position
-        
-        -- Cambiar opacidad al arrastrar
-        if dragHandleFrame.BackgroundTransparency then
-            local originalTrans = dragHandleFrame.BackgroundTransparency
-            dragHandleFrame.BackgroundTransparency = math.min(originalTrans + 0.3, 0.8)
-        end
-        
-        dragConnection = UserInputService.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
-               input.UserInputType == Enum.UserInputType.Touch) then
-                local delta = input.Position - dragStartPos
-                frame.Position = UDim2.new(
-                    frameStartPos.X.Scale, frameStartPos.X.Offset + delta.X,
-                    frameStartPos.Y.Scale, frameStartPos.Y.Offset + delta.Y
-                )
-            end
-        end)
-        
-        dragEndConnection = UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-               input.UserInputType == Enum.UserInputType.Touch then
-                dragging = false
-                if dragHandleFrame.BackgroundTransparency then
-                    dragHandleFrame.BackgroundTransparency = 0.2
-                end
-                if dragConnection then dragConnection:Disconnect() end
-                if dragEndConnection then dragEndConnection:Disconnect() end
-            end
-        end)
-    end
-    
-    dragHandleFrame.InputBegan:Connect(function(input, gameProcessed)
+    handle.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
-        
         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
            input.UserInputType == Enum.UserInputType.Touch then
-            
-            -- Verificar si el clic fue en un botón (para no arrastrar)
-            local target = UserInputService:GetMouseTarget()
-            local isButton = false
-            
-            if target then
-                local current = target
-                while current and current ~= frame do
-                    if current:IsA("TextButton") then
-                        isButton = true
-                        break
-                    end
-                    current = current.Parent
-                end
-            end
-            
-            if not isButton then
-                startDrag(input)
-            end
+            dragging = true
+            dragStartPos = input.Position
+            frameStartPos = frame.Position
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
+           input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStartPos
+            frame.Position = UDim2.new(
+                frameStartPos.X.Scale, frameStartPos.X.Offset + delta.X,
+                frameStartPos.Y.Scale, frameStartPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
         end
     end)
 end
@@ -568,43 +707,29 @@ local function CreateButtonsInterface()
     UIStroke.Transparency = 0.5
     UIStroke.Parent = Frame
 
-    -- BARRA DE ARRASTRE
-    local DragBar = Instance.new("Frame")
-    DragBar.Size = UDim2.new(1, 0, 0, 35)
-    DragBar.Position = UDim2.new(0, 0, 0, 0)
-    DragBar.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
-    DragBar.BackgroundTransparency = 0.2
-    DragBar.BorderSizePixel = 0
-    DragBar.Parent = Frame
+    local TopBar = Instance.new("Frame")
+    TopBar.Size = UDim2.new(1, 0, 0, 35)
+    TopBar.Position = UDim2.new(0, 0, 0, 0)
+    TopBar.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+    TopBar.BackgroundTransparency = 0.2
+    TopBar.BorderSizePixel = 0
+    TopBar.Parent = Frame
 
-    local DragBarCorner = Instance.new("UICorner")
-    DragBarCorner.CornerRadius = UDim.new(0, 12)
-    DragBarCorner.Parent = DragBar
+    local TopBarCorner = Instance.new("UICorner")
+    TopBarCorner.CornerRadius = UDim.new(0, 12)
+    TopBarCorner.Parent = TopBar
 
-    -- Icono de arrastre
-    local DragIcon = Instance.new("TextLabel")
-    DragIcon.Size = UDim2.new(0, 30, 0, 35)
-    DragIcon.Position = UDim2.new(0, 8, 0, 0)
-    DragIcon.BackgroundTransparency = 1
-    DragIcon.Text = "⋮⋮"
-    DragIcon.TextColor3 = Color3.fromRGB(200, 200, 255)
-    DragIcon.TextSize = 20
-    DragIcon.Font = Enum.Font.GothamBold
-    DragIcon.TextXAlignment = Enum.TextXAlignment.Center
-    DragIcon.Parent = DragBar
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(0.6, 0, 1, 0)
+    Title.Position = UDim2.new(0, 12, 0, 0)
+    Title.BackgroundTransparency = 1
+    Title.Text = "⋮⋮  PANEL DE CONTROL  ⋮⋮"
+    Title.TextColor3 = Color3.fromRGB(200, 200, 255)
+    Title.TextSize = 11
+    Title.Font = Enum.Font.GothamBold
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = TopBar
 
-    local DragText = Instance.new("TextLabel")
-    DragText.Size = UDim2.new(0.6, 0, 1, 0)
-    DragText.Position = UDim2.new(0, 45, 0, 0)
-    DragText.BackgroundTransparency = 1
-    DragText.Text = "PANEL DE CONTROL (Arrastrable)"
-    DragText.TextColor3 = Color3.fromRGB(200, 200, 255)
-    DragText.TextSize = 11
-    DragText.Font = Enum.Font.GothamBold
-    DragText.TextXAlignment = Enum.TextXAlignment.Left
-    DragText.Parent = DragBar
-
-    -- Botón configuración
     local ConfigButton = Instance.new("TextButton")
     ConfigButton.Size = UDim2.new(0, 35, 0, 30)
     ConfigButton.Position = UDim2.new(1, -42, 0, 2.5)
@@ -613,20 +738,18 @@ local function CreateButtonsInterface()
     ConfigButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     ConfigButton.Font = Enum.Font.GothamBold
     ConfigButton.TextSize = 16
-    ConfigButton.Parent = DragBar
+    ConfigButton.Parent = TopBar
 
     local configCorner = Instance.new("UICorner")
     configCorner.CornerRadius = UDim.new(0, 6)
     configCorner.Parent = ConfigButton
 
-    -- Contenedor de botones
     local ButtonsContainer = Instance.new("Frame")
     ButtonsContainer.Size = UDim2.new(0.96, 0, 0.55, 0)
     ButtonsContainer.Position = UDim2.new(0.02, 0, 0.48, 0)
     ButtonsContainer.BackgroundTransparency = 1
     ButtonsContainer.Parent = Frame
 
-    -- Botón HITBOX
     hitboxBtn = Instance.new("TextButton")
     hitboxBtn.Size = UDim2.new(0.24, 0, 1, 0)
     hitboxBtn.Position = UDim2.new(0, 0, 0, 0)
@@ -642,7 +765,6 @@ local function CreateButtonsInterface()
     hitboxCorner.CornerRadius = UDim.new(0, 8)
     hitboxCorner.Parent = hitboxBtn
 
-    -- Botón TP WALK
     tpWalkBtn = Instance.new("TextButton")
     tpWalkBtn.Size = UDim2.new(0.24, 0, 1, 0)
     tpWalkBtn.Position = UDim2.new(0.25, 0, 0, 0)
@@ -658,7 +780,6 @@ local function CreateButtonsInterface()
     tpWalkCorner.CornerRadius = UDim.new(0, 8)
     tpWalkCorner.Parent = tpWalkBtn
 
-    -- Botón ANTI-RAGDOLL
     antiRagdollBtn = Instance.new("TextButton")
     antiRagdollBtn.Size = UDim2.new(0.24, 0, 1, 0)
     antiRagdollBtn.Position = UDim2.new(0.5, 0, 0, 0)
@@ -674,7 +795,6 @@ local function CreateButtonsInterface()
     antiRagdollCorner.CornerRadius = UDim.new(0, 8)
     antiRagdollCorner.Parent = antiRagdollBtn
 
-    -- Botón DAMAGE REPEATER
     damageRepeaterBtn = Instance.new("TextButton")
     damageRepeaterBtn.Size = UDim2.new(0.24, 0, 1, 0)
     damageRepeaterBtn.Position = UDim2.new(0.75, 0, 0, 0)
@@ -690,8 +810,7 @@ local function CreateButtonsInterface()
     damageRepeaterCorner.CornerRadius = UDim.new(0, 8)
     damageRepeaterCorner.Parent = damageRepeaterBtn
 
-    -- Hacer el panel arrastrable
-    MakeDraggable(Frame, DragBar)
+    MakeDraggableWithHandle(Frame, TopBar)
 
     return ScreenGui, Frame, ConfigButton
 end
@@ -706,8 +825,8 @@ local function CreateConfigInterface()
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 260, 0, 380)
-    Frame.Position = UDim2.new(0.5, -130, 0.5, -190)
+    Frame.Size = UDim2.new(0, 260, 0, 350)
+    Frame.Position = UDim2.new(0.5, -130, 0.5, -175)
     Frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     Frame.BorderSizePixel = 0
     Frame.ClipsDescendants = true
@@ -723,7 +842,6 @@ local function CreateConfigInterface()
     UIStroke.Transparency = 0.5
     UIStroke.Parent = Frame
 
-    -- Barra de título (arrastrable)
     local TitleBar = Instance.new("Frame")
     TitleBar.Size = UDim2.new(1, 0, 0, 35)
     TitleBar.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
@@ -739,9 +857,9 @@ local function CreateConfigInterface()
     Title.Size = UDim2.new(0.7, 0, 1, 0)
     Title.Position = UDim2.new(0, 12, 0, 0)
     Title.BackgroundTransparency = 1
-    Title.Text = "⋮⋮ CONFIGURACIÓN (Arrastrable) ⋮⋮"
+    Title.Text = "⋮⋮ CONFIGURACIÓN ⋮⋮"
     Title.TextColor3 = Color3.fromRGB(255, 200, 100)
-    Title.TextSize = 10
+    Title.TextSize = 11
     Title.Font = Enum.Font.GothamBold
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.Parent = TitleBar
@@ -760,13 +878,10 @@ local function CreateConfigInterface()
     CloseCorner.CornerRadius = UDim.new(0, 6)
     CloseCorner.Parent = CloseBtn
 
-    -- Contenido
-    local Content = Instance.new("ScrollingFrame")
+    local Content = Instance.new("Frame")
     Content.Size = UDim2.new(1, 0, 1, -35)
     Content.Position = UDim2.new(0, 0, 0, 35)
     Content.BackgroundTransparency = 1
-    Content.CanvasSize = UDim2.new(0, 0, 0, 420)
-    Content.ScrollBarThickness = 4
     Content.Parent = Frame
 
     local yOffset = 0.05
@@ -843,7 +958,7 @@ local function CreateConfigInterface()
     hitboxTransparencyInput.Font = Enum.Font.Gotham
     hitboxTransparencyInput.TextSize = 9
     hitboxTransparencyInput.PlaceholderText = "0-1"
-    hitboxTransparencyInput.Text = "1"
+    hitboxTransparencyInput.Text = "0.5"
     hitboxTransparencyInput.Parent = Content
 
     local transInputCorner = Instance.new("UICorner")
@@ -854,7 +969,7 @@ local function CreateConfigInterface()
     hitboxTransparencyLabel.Size = UDim2.new(0.25, 0, 0, 20)
     hitboxTransparencyLabel.Position = UDim2.new(0.7, 0, yOffset, 0)
     hitboxTransparencyLabel.BackgroundTransparency = 1
-    hitboxTransparencyLabel.Text = "Trans: 1"
+    hitboxTransparencyLabel.Text = "Trans: 0.5"
     hitboxTransparencyLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     hitboxTransparencyLabel.Font = Enum.Font.Gotham
     hitboxTransparencyLabel.TextSize = 9
@@ -1046,7 +1161,7 @@ local function CreateConfigInterface()
     repeatStatusLabel.Size = UDim2.new(0.9, 0, 0, 16)
     repeatStatusLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
     repeatStatusLabel.BackgroundTransparency = 1
-    repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x"
+    repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x (solo golpes)"
     repeatStatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     repeatStatusLabel.Font = Enum.Font.Gotham
     repeatStatusLabel.TextSize = 8
@@ -1164,11 +1279,92 @@ local function CreateConfigInterface()
     infoLabel.TextXAlignment = Enum.TextXAlignment.Center
     infoLabel.Parent = Content
 
-    -- Ajustar CanvasSize del ScrollingFrame
-    Content.CanvasSize = UDim2.new(0, 0, 0, yOffset * 1000 + 20)
+    -- CONECTAR EVENTOS DE LOS INPUTS
+    hitboxSizeInput.FocusLost:Connect(function(enter)
+        if enter then
+            local val = tonumber(hitboxSizeInput.Text)
+            if val and val >= 0.1 and val <= 100 then
+                setHitboxSize(val)
+                searchResult.Text = "✓ Tamaño cambiado a " .. val
+                searchResult.TextColor3 = Color3.fromRGB(80, 255, 80)
+                task.wait(1.5)
+                searchResult.Text = "Presiona Enter"
+                searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
+            else
+                hitboxSizeInput.Text = tostring(HITBOX_SIZE)
+                searchResult.Text = "✗ Tam inválido (0.1-100)"
+                searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
+                task.wait(2)
+                searchResult.Text = "Presiona Enter"
+                searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
+            end
+        end
+    end)
 
-    -- Hacer la ventana de configuración arrastrable
-    MakeDraggable(Frame, TitleBar)
+    hitboxTransparencyInput.FocusLost:Connect(function(enter)
+        if enter then
+            local val = tonumber(hitboxTransparencyInput.Text)
+            if val and val >= 0 and val <= 1 then
+                setHitboxTransparency(val)
+                searchResult.Text = "✓ Transparencia cambiada a " .. val
+                searchResult.TextColor3 = Color3.fromRGB(80, 255, 80)
+                task.wait(1.5)
+                searchResult.Text = "Presiona Enter"
+                searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
+            else
+                hitboxTransparencyInput.Text = tostring(HITBOX_TRANSPARENCY)
+                searchResult.Text = "✗ Trans inválida (0-1)"
+                searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
+                task.wait(2)
+                searchResult.Text = "Presiona Enter"
+                searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
+            end
+        end
+    end)
+
+    walkSpeedInput.FocusLost:Connect(function(enter)
+        if enter then
+            local val = tonumber(walkSpeedInput.Text)
+            if val and val >= 0.1 and val <= 500 then
+                setWalkSpeed(val)
+                searchResult.Text = "✓ Velocidad cambiada a " .. val
+                searchResult.TextColor3 = Color3.fromRGB(80, 255, 80)
+                task.wait(1.5)
+                searchResult.Text = "Presiona Enter"
+                searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
+            else
+                walkSpeedInput.Text = tostring(WalkSpeedValue)
+                searchResult.Text = "✗ Vel inválida (0.1-500)"
+                searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
+                task.wait(2)
+                searchResult.Text = "Presiona Enter"
+                searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
+            end
+        end
+    end)
+
+    tpSpeedInput.FocusLost:Connect(function(enter)
+        if enter then
+            local val = tonumber(tpSpeedInput.Text)
+            if val and val >= 0.01 and val <= 50 then
+                setTPSpeed(val)
+                searchResult.Text = "✓ Vel TP cambiada a " .. val
+                searchResult.TextColor3 = Color3.fromRGB(80, 255, 80)
+                task.wait(1.5)
+                searchResult.Text = "Presiona Enter"
+                searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
+            else
+                tpSpeedInput.Text = tostring(TPSpeedValue)
+                searchResult.Text = "✗ Vel TP inválida (0.01-50)"
+                searchResult.TextColor3 = Color3.fromRGB(255, 80, 80)
+                task.wait(2)
+                searchResult.Text = "Presiona Enter"
+                searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
+            end
+        end
+    end)
+
+    MakeDraggableWithHandle(Frame, TitleBar)
 
     return ScreenGui, Frame, CloseBtn
 end
@@ -1282,7 +1478,7 @@ local function targetClosest()
     local closestPlayer = nil
     
     for _, v in pairs(Players:GetPlayers()) do
-        if v ~= player then
+        if v ~= player and not isPlayerProhibited(v) then
             pcall(function()
                 if v.Character and v.Character:FindFirstChild("HumanoidRootPart") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                     local distance = (v.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
@@ -1378,7 +1574,7 @@ if repeatInput then
             REPEAT_AMOUNT = math.floor(num)
             repeatInput.Text = tostring(REPEAT_AMOUNT)
             if repeatStatusLabel then
-                repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x"
+                repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x (solo golpes)"
                 if damageRepeaterEnabled then
                     repeatStatusLabel.TextColor3 = Color3.fromRGB(80, 255, 80)
                 else
@@ -1394,77 +1590,6 @@ if repeatInput then
         end
     end)
 end
-
--- Eventos de configuración
-local function findTextBoxes()
-    local content = configFrame:FindFirstChild("Content")
-    if not content then return end
-    
-    for _, v in pairs(content:GetDescendants()) do
-        if v:IsA("TextBox") then
-            if v.PlaceholderText == "0.1-100" then
-                v.FocusLost:Connect(function(enter)
-                    if enter then
-                        local val = tonumber(v.Text)
-                        if val and val >= 0.1 and val <= 100 then
-                            setHitboxSize(val)
-                        else
-                            v.Text = tostring(HITBOX_SIZE)
-                            searchResult.Text = "✗ Tam inválido"
-                            task.wait(1.5)
-                            searchResult.Text = "Presiona Enter"
-                        end
-                    end
-                end)
-            elseif v.PlaceholderText == "0-1" then
-                v.FocusLost:Connect(function(enter)
-                    if enter then
-                        local val = tonumber(v.Text)
-                        if val and val >= 0 and val <= 1 then
-                            setHitboxTransparency(val)
-                        else
-                            v.Text = tostring(HITBOX_TRANSPARENCY)
-                            searchResult.Text = "✗ Trans inválida"
-                            task.wait(1.5)
-                            searchResult.Text = "Presiona Enter"
-                        end
-                    end
-                end)
-            elseif v.PlaceholderText == "Velocidad" then
-                v.FocusLost:Connect(function(enter)
-                    if enter then
-                        local val = tonumber(v.Text)
-                        if val and val >= 0.1 and val <= 500 then
-                            setWalkSpeed(val)
-                        else
-                            v.Text = tostring(WalkSpeedValue)
-                            searchResult.Text = "✗ Vel inválida"
-                            task.wait(1.5)
-                            searchResult.Text = "Presiona Enter"
-                        end
-                    end
-                end)
-            elseif v.PlaceholderText == "0.01-50" then
-                v.FocusLost:Connect(function(enter)
-                    if enter then
-                        local val = tonumber(v.Text)
-                        if val and val >= 0.01 and val <= 50 then
-                            setTPSpeed(val)
-                        else
-                            v.Text = tostring(TPSpeedValue)
-                            searchResult.Text = "✗ Vel TP inválida"
-                            task.wait(1.5)
-                            searchResult.Text = "Presiona Enter"
-                        end
-                    end
-                end)
-            end
-        end
-    end
-end
-
-task.wait(0.5)
-findTextBoxes()
 
 if walkSpeedBtn then
     walkSpeedBtn.MouseButton1Click:Connect(function()
@@ -1545,7 +1670,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
 end)
 
 -- Loop principal del hitbox
-local hitboxConnection = RunService.Heartbeat:Connect(updateHitboxes)
+hitboxConnection = RunService.Heartbeat:Connect(updateHitboxes)
 
 -- Inicialización
 updateTargetStatus()
@@ -1557,11 +1682,16 @@ updateDamageRepeaterButton()
 setWalkSpeed(16)
 setTPSpeed(3)
 setHitboxSize(30)
-setHitboxTransparency(1)
+setHitboxTransparency(0.5)
 
-print("=== HITBOX EXPANDER + MOVEMENT + ANTI-RAGDOLL + DAMAGE REPEATER ===")
-print("✅ Interfaz completamente arrastrable (mouse y táctil)")
-print("✅ Arrastra desde la barra superior o cualquier área vacía")
-print("✅ Panel de botones con 4 funciones: HIT | TP | RAG | REP")
+print("=== HITBOX EXPANDER + DAMAGE REPEATER OPTIMIZADO ===")
+print("✅ Damage Repeater AHORA SOLO REPITE GOLPES - NO MÁS DEFORMACIÓN")
+print("✅ Los jugadores en la lista de prohibidos NO son afectados por el repeater")
+print("✅ Lista de eventos IGNORADOS para evitar deformación:")
+print("   - Animation, Emote, Pose, Movement, Jump, Sit, Ragdoll, etc.")
+print("✅ Lista de eventos que SÍ se repiten:")
+print("   - Hit, Damage, MeleeHit, Punch, Kick, Attack, SwordHit, etc.")
+print("✅ Límite de " .. MAX_REPEAT_PER_SECOND .. " repeticiones por segundo")
+print("✅ Hitbox con transparencia funcional")
+print("✅ Lista de prohibidos: " .. #PROHIBITED_USERS .. " usuarios")
 print("✅ Teclas: K=Mostrar | E=Hitbox | R=TP Walk")
-print("✅ Damage Repeater corregido - Funciona al activar/desactivar múltiples veces")
