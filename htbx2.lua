@@ -69,175 +69,76 @@ local TPWalkEnabled = false
 local TPSpeedValue = 3
 local tpWalkConnection = nil
 
--- ==================== DAMAGE REPEATER MEJORADO ====================
+-- ==================== DAMAGE REPEATER VERSIÓN REMOTE SPY ====================
 local REPEAT_AMOUNT = 26
-local REPEAT_DELAY = 0.001
 local damageRepeaterEnabled = false
-local mt = nil
-local old = nil
-local isMetatableHooked = false
+local remoteConnections = {}
 
--- MÁS EVENTOS DE DAÑO
-local DAMAGE_EVENTS = {
-    "Hit", "Damage", "DealDamage", "TakeDamage", "MeleeHit",
-    "Punch", "Kick", "Attack", "SwordHit", "Swing", "Strike",
-    "Fire", "Shoot", "BulletHit", "ProjectileHit", "Explosion",
-    "Blast", "Slice", "Cut", "Stab", "Smash", "Crush",
-    "Burn", "Freeze", "Poison", "Electric", "Magic", "Spell",
-    "Skill", "Ability", "Ultimate", "Special", "Combo",
-    "Critical", "Headshot", "Backstab", "Execute"
-}
-
-local IGNORED_EVENTS = {
-    "SayMessageRequest", "MeleeUpdateEvent", "NinjaBombEvent",
-    "BulletUpdateEvent", "UpdateAnimation", "SetAnimation",
-    "MoveEvent", "JumpEvent", "SitEvent", "Emote", "Dance",
-    "Pose", "AnimationEvent", "CharacterAdded", "HumanoidDescription",
-    "LoadCharacter", "Respawn", "Teleport", "UpdateMotor6D",
-    "SetMotor6D", "Ragdoll", "Fall", "Chat", "Speak"
-}
-
-local lastRepeatTime = {}
-local MAX_REPEAT_PER_SECOND = 30
-
-task.spawn(function()
-    while true do
-        task.wait(10)
-        local now = os.time()
-        for name, time in pairs(lastRepeatTime) do
-            if now - time > 5 then
-                lastRepeatTime[name] = nil
-            end
-        end
-    end
-end)
-
-local function getTargetPlayerFromArgs(...)
-    local args = {...}
-    for _, arg in ipairs(args) do
-        if type(arg) == "Instance" and arg:IsA("Player") then
-            return arg
-        end
-        if type(arg) == "string" then
-            local target = Players:FindFirstChild(arg)
-            if target then return target end
-        end
-        if type(arg) == "table" then
-            if arg.Name and Players:FindFirstChild(arg.Name) then
-                return Players:FindFirstChild(arg.Name)
-            end
-            if arg.Parent and arg.Parent:IsA("Model") then
-                local playerObj = Players:GetPlayerFromCharacter(arg.Parent)
-                if playerObj then return playerObj end
-            end
-        end
-        if type(arg) == "Instance" and arg:IsA("BasePart") then
-            local char = arg.Parent
-            while char and char ~= Workspace do
-                if char:IsA("Model") then
-                    local playerObj = Players:GetPlayerFromCharacter(char)
-                    if playerObj then return playerObj end
+local function findDamageRemotes()
+    local remotes = {}
+    local recursiveSearch = function(obj, path)
+        for _, child in ipairs(obj:GetChildren()) do
+            if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+                local nameLower = child.Name:lower()
+                -- Detectar remotos que parecen de daño
+                if nameLower:find("hit") or nameLower:find("damage") or nameLower:find("attack") or
+                   nameLower:find("melee") or nameLower:find("punch") or nameLower:find("kick") or
+                   nameLower:find("sword") or nameLower:find("strike") or nameLower:find("combat") then
+                    table.insert(remotes, child)
                 end
-                char = char.Parent
             end
+            recursiveSearch(child, path.."/"..child.Name)
         end
     end
-    return nil
+    recursiveSearch(game:GetService("ReplicatedStorage"), "")
+    recursiveSearch(game:GetService("Players"), "")
+    return remotes
 end
 
-local function isDamageEvent(eventName)
-    local lowerName = eventName:lower()
-    for _, damageEvent in ipairs(DAMAGE_EVENTS) do
-        if lowerName == damageEvent:lower() or lowerName:find(damageEvent:lower()) then
-            return true
-        end
+local function setupRemoteRepeater()
+    -- Limpiar conexiones anteriores
+    for _, conn in ipairs(remoteConnections) do
+        pcall(function() conn:Disconnect() end)
     end
-    return false
-end
-
-local function isIgnoredEvent(eventName)
-    local lowerName = eventName:lower()
-    for _, ignoredEvent in ipairs(IGNORED_EVENTS) do
-        if lowerName == ignoredEvent:lower() or lowerName:find(ignoredEvent:lower()) then
-            return true
-        end
-    end
-    return false
-end
-
-local function shouldRepeat(targetPlayerName)
-    if not targetPlayerName then return true end
-    local now = os.time()
-    local lastTime = lastRepeatTime[targetPlayerName] or 0
-    if now - lastTime < (1 / MAX_REPEAT_PER_SECOND) then
-        return false
-    end
-    lastRepeatTime[targetPlayerName] = now
-    return true
-end
-
-local function repeatDamageAsync(remote, ...)
-    local args = {...}
-    task.spawn(function()
-        for i = 1, REPEAT_AMOUNT do
-            pcall(function()
-                old(remote, unpack(args))
-            end)
-            if REPEAT_DELAY > 0 then
-                task.wait(REPEAT_DELAY)
+    remoteConnections = {}
+    
+    local damageRemotes = findDamageRemotes()
+    print("🔍 Encontrados " .. #damageRemotes .. " remotos potenciales de daño")
+    
+    for _, remote in ipairs(damageRemotes) do
+        local connection = remote.OnServerEvent:Connect(function(plr, ...)
+            if not damageRepeaterEnabled then return end
+            if plr ~= player then return end
+            
+            local args = {...}
+            local targetPlayer = nil
+            
+            -- Buscar jugador objetivo en los argumentos
+            for _, arg in ipairs(args) do
+                if type(arg) == "string" then
+                    local found = Players:FindFirstChild(arg)
+                    if found then targetPlayer = found; break end
+                elseif type(arg) == "Instance" and arg:IsA("Player") then
+                    targetPlayer = arg; break
+                end
             end
-        end
-    end)
-end
-
-local function createNamecallHandler()
-    return function(self, ...)
-        local method = getnamecallmethod()
-        local eventName = self.Name
-        
-        if isIgnoredEvent(eventName) then
-            return old(self, ...)
-        end
-        
-        if method == "FireServer" or method == "InvokeServer" then
-            if isDamageEvent(eventName) then
-                local targetPlayerObj = getTargetPlayerFromArgs(...)
-                
-                if targetPlayerObj and isPlayerProhibited(targetPlayerObj) then
-                    return old(self, ...)
-                end
-                
-                local targetName = targetPlayerObj and targetPlayerObj.Name or "global"
-                
-                if shouldRepeat(targetName) then
-                    repeatDamageAsync(self, ...)
-                else
-                    old(self, ...)
-                end
+            
+            if targetPlayer and isPlayerProhibited(targetPlayer) then
                 return
             end
-        end
-        
-        return old(self, ...)
-    end
-end
-
-local function EnableDamageRepeater()
-    if isMetatableHooked then return end
-    if not mt then
-        mt = getrawmetatable(game)
-        old = mt.__namecall
-        setreadonly(mt, false)
-    end
-    mt.__namecall = createNamecallHandler()
-    isMetatableHooked = true
-end
-
-local function DisableDamageRepeater()
-    if not isMetatableHooked then return end
-    if mt and old then
-        mt.__namecall = old
-        isMetatableHooked = false
+            
+            -- Repetir el remote
+            task.spawn(function()
+                for i = 1, REPEAT_AMOUNT do
+                    if not damageRepeaterEnabled then break end
+                    pcall(function()
+                        remote:FireServer(unpack(args))
+                    end)
+                    task.wait(0.001)
+                end
+            end)
+        end)
+        table.insert(remoteConnections, connection)
     end
 end
 
@@ -245,27 +146,22 @@ local function toggleDamageRepeater()
     damageRepeaterEnabled = not damageRepeaterEnabled
     
     if damageRepeaterEnabled then
-        EnableDamageRepeater()
+        setupRemoteRepeater()
         if damageRepeaterBtn then
             damageRepeaterBtn.Text = "REP\nON"
             damageRepeaterBtn.TextColor3 = Color3.fromRGB(80, 255, 80)
             damageRepeaterBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
         end
-        if repeatStatusLabel then
-            repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x (Delay: " .. (REPEAT_DELAY*1000) .. "ms)"
-            repeatStatusLabel.TextColor3 = Color3.fromRGB(80, 255, 80)
-        end
         print("✅ Damage Repeater ACTIVADO - " .. REPEAT_AMOUNT .. " repeticiones")
     else
-        DisableDamageRepeater()
+        for _, conn in ipairs(remoteConnections) do
+            pcall(function() conn:Disconnect() end)
+        end
+        remoteConnections = {}
         if damageRepeaterBtn then
             damageRepeaterBtn.Text = "REP\nOFF"
             damageRepeaterBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
             damageRepeaterBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        end
-        if repeatStatusLabel then
-            repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x"
-            repeatStatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
         end
         print("❌ Damage Repeater DESACTIVADO")
     end
