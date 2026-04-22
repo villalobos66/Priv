@@ -1,23 +1,5 @@
--- Verificar si estamos en un entorno válido
-if not game or not game:GetService("Players") then
-    warn("Entorno no válido para ejecutar el script")
-    return
-end
-
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-
--- Esperar a que el jugador esté listo
-if not player then
-    game:GetService("Players").PlayerAdded:Wait()
-    player = Players.LocalPlayer
-end
-
--- Esperar a que la GUI del jugador exista
-repeat wait() until player and player.PlayerGui
-
-local REPEAT_AMOUNT = 999999  -- Valor alto para simular infinito
-local REPEAT_DELAY = 0.1      -- Delay de 0.1 segundos entre repeticiones
+local REPEAT_AMOUNT = 999999  -- INFINITO (número muy alto)
+local REPEAT_DELAY = 0.1      -- Delay de 0.1 segundos
 
 -- Excepciones - eventos que NO se repetirán
 local exceptions = {
@@ -27,102 +9,310 @@ local exceptions = {
     "BulletUpdateEvent"
 }
 
+-- Interceptar y repetir llamadas remotas
+local mt = getrawmetatable(game)
+local old = mt.__namecall
+setreadonly(mt, false)
+
 -- Variables para UI
+local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
 local damageRepeaterEnabled = false
 
 -- Tabla para almacenar remotes reconocidos permanentemente
 local recognizedRemotes = {}
 
--- Variables para el hook
-local mt = nil
-local old = nil
-local hookActive = false
-
--- ==================== FUNCIONES DEL REPETIDOR ====================
-local function SetupHook()
-    if hookActive then return end
+-- ==================== UI MEJORADA Y ORDENADA ====================
+local function CreateMainFrame()
+    local ScreenGui = player.PlayerGui:FindFirstChild("DamageRepeaterGUI") 
+        or Instance.new("ScreenGui")
+    ScreenGui.Name = "DamageRepeaterGUI"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = player.PlayerGui
     
-    local success, result = pcall(function()
-        mt = getrawmetatable(game)
-        old = mt.__namecall
-        setreadonly(mt, false)
-        hookActive = true
-        return true
+    -- Frame principal
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0, 220, 0, 175)
+    Frame.Position = UDim2.new(0.5, -110, 0.5, -87)
+    Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Frame.BorderSizePixel = 0
+    Frame.ClipsDescendants = true
+    Frame.Parent = ScreenGui
+    
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 10)
+    UICorner.Parent = Frame
+    
+    local UIStroke = Instance.new("UIStroke")
+    UIStroke.Color = Color3.fromRGB(255, 255, 255)
+    UIStroke.Transparency = 0.3
+    UIStroke.Thickness = 1
+    UIStroke.Parent = Frame
+    
+    -- Barra superior
+    local TopBar = Instance.new("Frame")
+    TopBar.Size = UDim2.new(1, 0, 0, 32)
+    TopBar.Position = UDim2.new(0, 0, 0, 0)
+    TopBar.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    TopBar.BorderSizePixel = 0
+    TopBar.Parent = Frame
+    
+    local TopCorner = Instance.new("UICorner")
+    TopCorner.CornerRadius = UDim.new(0, 10)
+    TopCorner.Parent = TopBar
+    
+    -- Título
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(0.7, 0, 1, 0)
+    Title.Position = UDim2.new(0, 12, 0, 0)
+    Title.BackgroundTransparency = 1
+    Title.Text = "♾️ INFINITE REPEATER"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 12
+    Title.Font = Enum.Font.GothamBold
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = TopBar
+    
+    -- Botón cerrar
+    local CloseBtn = Instance.new("TextButton")
+    CloseBtn.Size = UDim2.new(0, 24, 0, 24)
+    CloseBtn.Position = UDim2.new(1, -30, 0, 4)
+    CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    CloseBtn.Text = "✕"
+    CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseBtn.Font = Enum.Font.GothamBold
+    CloseBtn.TextSize = 14
+    CloseBtn.Parent = TopBar
+    
+    local CloseCorner = Instance.new("UICorner")
+    CloseCorner.CornerRadius = UDim.new(0, 6)
+    CloseCorner.Parent = CloseBtn
+    
+    CloseBtn.MouseButton1Click:Connect(function()
+        if damageRepeaterEnabled then
+            mt.__namecall = old
+            setreadonly(mt, true)
+        end
+        Frame:Destroy()
     end)
     
-    if not success then
-        warn("No se pudo obtener el metatable: " .. tostring(result))
-        return false
+    -- Contenedor
+    local Container = Instance.new("Frame")
+    Container.Size = UDim2.new(1, 0, 1, -32)
+    Container.Position = UDim2.new(0, 0, 0, 32)
+    Container.BackgroundTransparency = 1
+    Container.Parent = Frame
+    
+    -- Línea divisoria
+    local Divider = Instance.new("Frame")
+    Divider.Size = UDim2.new(0.9, 0, 0, 1)
+    Divider.Position = UDim2.new(0.05, 0, 0, 0)
+    Divider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    Divider.BorderSizePixel = 0
+    Divider.Parent = Container
+    
+    -- Botón de activar
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Size = UDim2.new(0.8, 0, 0, 40)
+    ToggleBtn.Position = UDim2.new(0.1, 0, 0.1, 0)
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    ToggleBtn.Text = "◉  REPEATER: OFF  ◉"
+    ToggleBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+    ToggleBtn.Font = Enum.Font.GothamBold
+    ToggleBtn.TextSize = 12
+    ToggleBtn.Parent = Container
+    
+    local ToggleCorner = Instance.new("UICorner")
+    ToggleCorner.CornerRadius = UDim.new(0, 8)
+    ToggleCorner.Parent = ToggleBtn
+    
+    -- Sección de delay
+    local DelaySection = Instance.new("Frame")
+    DelaySection.Size = UDim2.new(1, 0, 0, 45)
+    DelaySection.Position = UDim2.new(0, 0, 0.45, 0)
+    DelaySection.BackgroundTransparency = 1
+    DelaySection.Parent = Container
+    
+    -- Label de delay
+    local DelayLabel = Instance.new("TextLabel")
+    DelayLabel.Size = UDim2.new(0.45, 0, 0, 25)
+    DelayLabel.Position = UDim2.new(0.05, 0, 0, 0)
+    DelayLabel.BackgroundTransparency = 1
+    DelayLabel.Text = "⚡ VELOCIDAD (s):"
+    DelayLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+    DelayLabel.TextSize = 11
+    DelayLabel.Font = Enum.Font.GothamBold
+    DelayLabel.TextXAlignment = Enum.TextXAlignment.Left
+    DelayLabel.Parent = DelaySection
+    
+    -- Input de delay
+    local DelayInput = Instance.new("TextBox")
+    DelayInput.Size = UDim2.new(0.35, 0, 0, 32)
+    DelayInput.Position = UDim2.new(0.6, 0, 0, -3)
+    DelayInput.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    DelayInput.Text = string.format("%.1f", REPEAT_DELAY)
+    DelayInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    DelayInput.Font = Enum.Font.Gotham
+    DelayInput.TextSize = 14
+    DelayInput.TextXAlignment = Enum.TextXAlignment.Center
+    DelayInput.Parent = DelaySection
+    
+    local InputCorner = Instance.new("UICorner")
+    InputCorner.CornerRadius = UDim.new(0, 6)
+    InputCorner.Parent = DelayInput
+    
+    -- Indicador
+    local RangeHint = Instance.new("TextLabel")
+    RangeHint.Size = UDim2.new(0.35, 0, 0, 15)
+    RangeHint.Position = UDim2.new(0.6, 0, 0.7, 0)
+    RangeHint.BackgroundTransparency = 1
+    RangeHint.Text = "(0.01 - 1.0)"
+    RangeHint.TextColor3 = Color3.fromRGB(120, 120, 130)
+    RangeHint.TextSize = 9
+    RangeHint.Font = Enum.Font.Gotham
+    RangeHint.TextXAlignment = Enum.TextXAlignment.Center
+    RangeHint.Parent = DelaySection
+    
+    -- Contador de remotes
+    local RemoteCounter = Instance.new("TextLabel")
+    RemoteCounter.Size = UDim2.new(1, 0, 0, 15)
+    RemoteCounter.Position = UDim2.new(0, 0, 0.75, 0)
+    RemoteCounter.BackgroundTransparency = 1
+    RemoteCounter.Text = "📡 Remotes reconocidos: 0"
+    RemoteCounter.TextColor3 = Color3.fromRGB(100, 100, 110)
+    RemoteCounter.TextSize = 9
+    RemoteCounter.Font = Enum.Font.Gotham
+    RemoteCounter.Parent = Container
+    
+    DelayInput.FocusLost:Connect(function()
+        local num = tonumber(DelayInput.Text)
+        if num and num >= 0.01 and num <= 1.0 then
+            REPEAT_DELAY = num
+            DelayInput.Text = string.format("%.2f", REPEAT_DELAY)
+        else
+            DelayInput.Text = string.format("%.1f", REPEAT_DELAY)
+        end
+    end)
+    
+    -- Estado actual
+    local StatusText = Instance.new("TextLabel")
+    StatusText.Size = UDim2.new(1, 0, 0, 18)
+    StatusText.Position = UDim2.new(0, 0, 0.88, 0)
+    StatusText.BackgroundTransparency = 1
+    StatusText.Text = "♾️ INFINITO | " .. string.format("%.1f", REPEAT_DELAY) .. "s de delay"
+    StatusText.TextColor3 = Color3.fromRGB(100, 200, 100)
+    StatusText.TextSize = 8
+    StatusText.Font = Enum.Font.Gotham
+    StatusText.Parent = Container
+    
+    -- Movimiento
+    local dragging = false
+    local dragStartMousePos = nil
+    local dragStartFramePos = nil
+    
+    local function UpdateFramePosition(inputPosition)
+        if not dragging then return end
+        local delta = inputPosition - dragStartMousePos
+        Frame.Position = UDim2.new(
+            dragStartFramePos.X.Scale, 
+            dragStartFramePos.X.Offset + delta.X,
+            dragStartFramePos.Y.Scale, 
+            dragStartFramePos.Y.Offset + delta.Y
+        )
     end
-    return true
+    
+    local function OnInputBegan(input, gameProcessed)
+        if gameProcessed then return end
+        
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            
+            local mousePos = input.Position
+            local frameAbsPos = Frame.AbsolutePosition
+            local frameSize = Frame.AbsoluteSize
+            
+            if mousePos.X >= frameAbsPos.X and mousePos.X <= frameAbsPos.X + frameSize.X and
+               mousePos.Y >= frameAbsPos.Y and mousePos.Y <= frameAbsPos.Y + 32 then
+                
+                dragging = true
+                dragStartMousePos = input.Position
+                dragStartFramePos = Frame.Position
+                
+                TweenService:Create(TopBar, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(45, 45, 50)}):Play()
+                
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                        TweenService:Create(TopBar, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(30, 30, 35)}):Play()
+                    end
+                end)
+            end
+        end
+    end
+    
+    local function OnInputChanged(input, gameProcessed)
+        if gameProcessed then return end
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or
+           input.UserInputType == Enum.UserInputType.Touch) then
+            UpdateFramePosition(input.Position)
+        end
+    end
+    
+    UserInputService.InputBegan:Connect(OnInputBegan)
+    UserInputService.InputChanged:Connect(OnInputChanged)
+    
+    return ToggleBtn, DelayInput, StatusText, RemoteCounter
 end
 
+-- ==================== FUNCIÓN PRINCIPAL (INFINITA) ====================
 local function EnableDamageRepeater()
-    if not SetupHook() then return end
-    
     mt.__namecall = function(self, ...)
         local method = getnamecallmethod()
         
-        -- Verificar excepciones
         for _, exception in pairs(exceptions) do
-            if type(self) == "Instance" and self.Name == exception then
+            if self.Name == exception then
                 return old(self, ...)
             end
         end
         
         if method == "FireServer" or method == "InvokeServer" then
-            -- Verificar si es un remote de golpe/damage
             local isDamageRemote = false
-            local remoteName = ""
             
-            if type(self) == "Instance" then
-                remoteName = self.Name
+            if string.find(self.Name:lower(), "hit") or 
+               string.find(self.Name:lower(), "damage") or
+               string.find(self.Name:lower(), "attack") or
+               string.find(self.Name:lower(), "melee") then
+                isDamageRemote = true
                 
-                if string.find(remoteName:lower(), "hit") or 
-                   string.find(remoteName:lower(), "damage") or
-                   string.find(remoteName:lower(), "attack") or
-                   string.find(remoteName:lower(), "melee") or
-                   string.find(remoteName:lower(), "punch") or
-                   string.find(remoteName:lower(), "slash") then
-                    isDamageRemote = true
-                    
-                    -- Guardar el remote reconocido
-                    if not recognizedRemotes[remoteName] then
-                        recognizedRemotes[remoteName] = {
-                            name = remoteName,
-                            hits = 0,
-                            firstSeen = tick()
-                        }
-                        print("🔍 Remote reconocido:", remoteName)
-                    end
-                    
-                    recognizedRemotes[remoteName].hits = recognizedRemotes[remoteName].hits + 1
+                if not recognizedRemotes[self.Name] then
+                    recognizedRemotes[self.Name] = {
+                        name = self.Name,
+                        hits = 0,
+                        firstSeen = tick()
+                    }
+                    print("🔍 Remote reconocido:", self.Name)
                 end
                 
-                -- Verificar si ya fue reconocido
-                if not isDamageRemote and recognizedRemotes[remoteName] then
-                    isDamageRemote = true
-                end
+                recognizedRemotes[self.Name].hits = recognizedRemotes[self.Name].hits + 1
             end
             
-            -- Repetición INFINITA
+            if not isDamageRemote and recognizedRemotes[self.Name] then
+                isDamageRemote = true
+            end
+            
+            -- REPETICIÓN INFINITA CON DELAY
             if isDamageRemote and damageRepeaterEnabled then
-                -- Ejecutar la original
-                local result = old(self, ...)
-                
-                -- Repetir en segundo plano
-                task.spawn(function()
+                -- Usar spawn para no congelar
+                spawn(function()
                     for i = 1, REPEAT_AMOUNT do
                         old(self, ...)
                         if REPEAT_DELAY > 0 then
-                            task.wait(REPEAT_DELAY)
+                            wait(REPEAT_DELAY)
                         end
                     end
                 end)
-                
-                return result
             end
         end
         
@@ -131,45 +321,35 @@ local function EnableDamageRepeater()
 end
 
 local function DisableDamageRepeater()
-    if not mt or not old then 
-        if SetupHook() then
-            mt.__namecall = old
-        end
-        return 
-    end
-    
-    -- Modo pasivo: reconoce pero no repite
     mt.__namecall = function(self, ...)
         local method = getnamecallmethod()
         
         for _, exception in pairs(exceptions) do
-            if type(self) == "Instance" and self.Name == exception then
+            if self.Name == exception then
                 return old(self, ...)
             end
         end
         
         if method == "FireServer" or method == "InvokeServer" then
-            if type(self) == "Instance" then
-                local remoteName = self.Name
+            if string.find(self.Name:lower(), "hit") or 
+               string.find(self.Name:lower(), "damage") or
+               string.find(self.Name:lower(), "attack") or
+               string.find(self.Name:lower(), "melee") then
                 
-                if string.find(remoteName:lower(), "hit") or 
-                   string.find(remoteName:lower(), "damage") or
-                   string.find(remoteName:lower(), "attack") or
-                   string.find(remoteName:lower(), "melee") or
-                   string.find(remoteName:lower(), "punch") or
-                   string.find(remoteName:lower(), "slash") then
-                    
-                    if not recognizedRemotes[remoteName] then
-                        recognizedRemotes[remoteName] = {
-                            name = remoteName,
-                            hits = 0,
-                            firstSeen = tick()
-                        }
-                        print("🔍 Remote reconocido (pasivo):", remoteName)
-                    end
-                    
-                    recognizedRemotes[remoteName].hits = recognizedRemotes[remoteName].hits + 1
+                if not recognizedRemotes[self.Name] then
+                    recognizedRemotes[self.Name] = {
+                        name = self.Name,
+                        hits = 0,
+                        firstSeen = tick()
+                    }
+                    print("🔍 Remote reconocido (pasivo):", self.Name)
                 end
+                
+                recognizedRemotes[self.Name].hits = recognizedRemotes[self.Name].hits + 1
+            end
+            
+            if recognizedRemotes[self.Name] then
+                recognizedRemotes[self.Name].lastSeen = tick()
             end
         end
         
@@ -177,280 +357,60 @@ local function DisableDamageRepeater()
     end
 end
 
--- ==================== UI ====================
-local function CreateMainFrame()
-    local ScreenGui = player.PlayerGui:FindFirstChild("DamageRepeaterGUI")
-    
-    if ScreenGui then
-        ScreenGui:Destroy()
+-- ==================== ACTUALIZAR UI ====================
+local function UpdateRemoteCounter(RemoteCounter)
+    if RemoteCounter then
+        local count = 0
+        for _ in pairs(recognizedRemotes) do
+            count = count + 1
+        end
+        RemoteCounter.Text = "📡 Remotes reconocidos: " .. count
+        if count > 0 then
+            RemoteCounter.TextColor3 = Color3.fromRGB(100, 200, 100)
+        else
+            RemoteCounter.TextColor3 = Color3.fromRGB(100, 100, 110)
+        end
     end
-    
-    ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "DamageRepeaterGUI"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = player.PlayerGui
-    
-    -- Frame principal
-    local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 240, 0, 180)
-    Frame.Position = UDim2.new(0.5, -120, 0.5, -90)
-    Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-    Frame.BorderSizePixel = 0
-    Frame.ClipsDescendants = true
-    Frame.Parent = ScreenGui
-    Frame.BackgroundTransparency = 0
-    
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 12)
-    UICorner.Parent = Frame
-    
-    local UIStroke = Instance.new("UIStroke")
-    UIStroke.Color = Color3.fromRGB(255, 255, 255)
-    UIStroke.Transparency = 0.2
-    UIStroke.Thickness = 1
-    UIStroke.Parent = Frame
-    
-    -- Barra superior
-    local TopBar = Instance.new("Frame")
-    TopBar.Size = UDim2.new(1, 0, 0, 35)
-    TopBar.Position = UDim2.new(0, 0, 0, 0)
-    TopBar.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-    TopBar.BorderSizePixel = 0
-    TopBar.Parent = Frame
-    
-    local TopCorner = Instance.new("UICorner")
-    TopCorner.CornerRadius = UDim.new(0, 12)
-    TopCorner.Parent = TopBar
-    
-    -- Título
-    local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(0.7, 0, 1, 0)
-    Title.Position = UDim2.new(0, 15, 0, 0)
-    Title.BackgroundTransparency = 1
-    Title.Text = "⚡ INFINITE REPEATER"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextSize = 13
-    Title.Font = Enum.Font.GothamBold
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-    Title.Parent = TopBar
-    
-    -- Botón cerrar
-    local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Size = UDim2.new(0, 26, 0, 26)
-    CloseBtn.Position = UDim2.new(1, -33, 0, 4.5)
-    CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-    CloseBtn.Text = "✕"
-    CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    CloseBtn.Font = Enum.Font.GothamBold
-    CloseBtn.TextSize = 14
-    CloseBtn.Parent = TopBar
-    
-    local CloseCorner = Instance.new("UICorner")
-    CloseCorner.CornerRadius = UDim.new(0, 8)
-    CloseCorner.Parent = CloseBtn
-    
-    CloseBtn.MouseButton1Click:Connect(function()
-        if damageRepeaterEnabled then
-            if mt and old then
-                mt.__namecall = old
-            end
-        end
-        ScreenGui:Destroy()
-    end)
-    
-    -- Contenedor
-    local Container = Instance.new("Frame")
-    Container.Size = UDim2.new(1, 0, 1, -35)
-    Container.Position = UDim2.new(0, 0, 0, 35)
-    Container.BackgroundTransparency = 1
-    Container.Parent = Frame
-    
-    -- Botón toggle
-    local ToggleBtn = Instance.new("TextButton")
-    ToggleBtn.Size = UDim2.new(0.85, 0, 0, 42)
-    ToggleBtn.Position = UDim2.new(0.075, 0, 0.12, 0)
-    ToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-    ToggleBtn.Text = "◉  REPEATER: OFF  ◉"
-    ToggleBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-    ToggleBtn.Font = Enum.Font.GothamBold
-    ToggleBtn.TextSize = 13
-    ToggleBtn.Parent = Container
-    
-    local ToggleCorner = Instance.new("UICorner")
-    ToggleCorner.CornerRadius = UDim.new(0, 8)
-    ToggleCorner.Parent = ToggleBtn
-    
-    -- Sección delay
-    local DelayFrame = Instance.new("Frame")
-    DelayFrame.Size = UDim2.new(1, 0, 0, 45)
-    DelayFrame.Position = UDim2.new(0, 0, 0.42, 0)
-    DelayFrame.BackgroundTransparency = 1
-    DelayFrame.Parent = Container
-    
-    local DelayLabel = Instance.new("TextLabel")
-    DelayLabel.Size = UDim2.new(0.5, 0, 0, 25)
-    DelayLabel.Position = UDim2.new(0.05, 0, 0, 0)
-    DelayLabel.BackgroundTransparency = 1
-    DelayLabel.Text = "⚡ VELOCIDAD (segundos):"
-    DelayLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
-    DelayLabel.TextSize = 11
-    DelayLabel.Font = Enum.Font.GothamBold
-    DelayLabel.TextXAlignment = Enum.TextXAlignment.Left
-    DelayLabel.Parent = DelayFrame
-    
-    local DelayInput = Instance.new("TextBox")
-    DelayInput.Size = UDim2.new(0.35, 0, 0, 32)
-    DelayInput.Position = UDim2.new(0.6, 0, 0, -3)
-    DelayInput.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-    DelayInput.Text = string.format("%.1f", REPEAT_DELAY)
-    DelayInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-    DelayInput.Font = Enum.Font.Gotham
-    DelayInput.TextSize = 14
-    DelayInput.TextXAlignment = Enum.TextXAlignment.Center
-    DelayInput.Parent = DelayFrame
-    
-    local DelayCorner = Instance.new("UICorner")
-    DelayCorner.CornerRadius = UDim.new(0, 6)
-    DelayCorner.Parent = DelayInput
-    
-    -- Contador
-    local CounterLabel = Instance.new("TextLabel")
-    CounterLabel.Size = UDim2.new(0.9, 0, 0, 18)
-    CounterLabel.Position = UDim2.new(0.05, 0, 0.7, 0)
-    CounterLabel.BackgroundTransparency = 1
-    CounterLabel.Text = "📡 Remotes reconocidos: 0"
-    CounterLabel.TextColor3 = Color3.fromRGB(100, 200, 100)
-    CounterLabel.TextSize = 10
-    CounterLabel.Font = Enum.Font.Gotham
-    CounterLabel.TextXAlignment = Enum.TextXAlignment.Left
-    CounterLabel.Parent = Container
-    
-    -- Estado
-    local StatusLabel = Instance.new("TextLabel")
-    StatusLabel.Size = UDim2.new(0.9, 0, 0, 16)
-    StatusLabel.Position = UDim2.new(0.05, 0, 0.82, 0)
-    StatusLabel.BackgroundTransparency = 1
-    StatusLabel.Text = "♾️ INFINITO | 0.1s de delay"
-    StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 160)
-    StatusLabel.TextSize = 9
-    StatusLabel.Font = Enum.Font.Gotham
-    StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-    StatusLabel.Parent = Container
-    
-    -- Funciones de la UI
-    DelayInput.FocusLost:Connect(function()
-        local num = tonumber(DelayInput.Text)
-        if num and num >= 0.01 and num <= 1.0 then
-            REPEAT_DELAY = num
-            DelayInput.Text = string.format("%.2f", REPEAT_DELAY)
-            if damageRepeaterEnabled then
-                StatusLabel.Text = "✅ INFINITO | " .. string.format("%.2f", REPEAT_DELAY) .. "s de delay"
-                StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-            end
-        else
-            DelayInput.Text = string.format("%.1f", REPEAT_DELAY)
-        end
-    end)
-    
-    -- Hover effects
-    ToggleBtn.MouseEnter:Connect(function()
-        if not damageRepeaterEnabled then
-            ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-        else
-            ToggleBtn.BackgroundColor3 = Color3.fromRGB(55, 95, 55)
-        end
-    end)
-    
-    ToggleBtn.MouseLeave:Connect(function()
-        if not damageRepeaterEnabled then
-            ToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-        else
-            ToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 85, 45)
-        end
-    end)
-    
-    -- Toggle function
-    ToggleBtn.MouseButton1Click:Connect(function()
-        damageRepeaterEnabled = not damageRepeaterEnabled
-        
-        if damageRepeaterEnabled then
-            ToggleBtn.Text = "◉  REPEATER: ON  ◉"
-            ToggleBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
-            ToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 85, 45)
-            StatusLabel.Text = "✅ INFINITO | " .. string.format("%.2f", REPEAT_DELAY) .. "s de delay"
-            StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-            EnableDamageRepeater()
-            print("✅ REPEATER ACTIVADO - Repetición infinita cada " .. REPEAT_DELAY .. "s")
-        else
-            ToggleBtn.Text = "◉  REPEATER: OFF  ◉"
-            ToggleBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-            ToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-            StatusLabel.Text = "⚡ Modo pasivo - Reconociendo remotes"
-            StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
-            DisableDamageRepeater()
-            print("⏹️ REPEATER DESACTIVADO - Modo pasivo")
-        end
-    end)
-    
-    -- Actualizar contador
-    task.spawn(function()
-        while ScreenGui and ScreenGui.Parent do
-            task.wait(1)
-            local count = 0
-            for _ in pairs(recognizedRemotes) do
-                count = count + 1
-            end
-            CounterLabel.Text = "📡 Remotes reconocidos: " .. count
-            if count > 0 then
-                CounterLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-            end
-        end
-    end)
-    
-    -- Movimiento de la ventana
-    local dragging = false
-    local dragStart = nil
-    local frameStart = nil
-    
-    TopBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            frameStart = Frame.Position
-        end
-    end)
-    
-    TopBar.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            Frame.Position = UDim2.new(frameStart.X.Scale, frameStart.X.Offset + delta.X, frameStart.Y.Scale, frameStart.Y.Offset + delta.Y)
-        end
-    end)
-    
-    TopBar.InputEnded:Connect(function()
-        dragging = false
-    end)
-    
-    return ScreenGui
 end
 
--- ==================== INICIAR ====================
-print("=" .. string.rep("=", 40))
-print("⚡ INFINITE DAMAGE REPEATER v4")
-print("=" .. string.rep("=", 40))
-print("🎯 Cargando interfaz...")
+-- ==================== INICIALIZAR ====================
+local ToggleBtn, DelayInput, StatusText, RemoteCounter = CreateMainFrame()
 
-local success, err = pcall(function()
-    SetupHook()
-    CreateMainFrame()
+spawn(function()
+    while true do
+        wait(1)
+        UpdateRemoteCounter(RemoteCounter)
+    end
 end)
 
-if success then
-    print("✅ Interfaz creada exitosamente")
-    print("💡 Activa el repetidor desde la interfaz")
-    print("⚡ Velocidad configurable (0.01s - 1.0s)")
-    print("♾️ Repetición INFINITA sin congelamiento")
-else
-    warn("❌ Error al cargar: " .. tostring(err))
-    print("💡 Asegúrate de ejecutar esto en un ejecutor compatible")
-end
+ToggleBtn.MouseButton1Click:Connect(function()
+    damageRepeaterEnabled = not damageRepeaterEnabled
+    
+    if damageRepeaterEnabled then
+        ToggleBtn.Text = "◉  REPEATER: ON  ◉"
+        ToggleBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 85, 45)
+        StatusText.Text = "✅ INFINITO - " .. string.format("%.2f", REPEAT_DELAY) .. "s entre golpes"
+        StatusText.TextColor3 = Color3.fromRGB(100, 200, 100)
+        EnableDamageRepeater()
+        print("✅ REPETIDOR INFINITO ACTIVADO - Delay: " .. REPEAT_DELAY .. "s")
+    else
+        ToggleBtn.Text = "◉  REPEATER: OFF  ◉"
+        ToggleBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+        StatusText.Text = "⚡ Modo pasivo - Reconociendo remotes"
+        StatusText.TextColor3 = Color3.fromRGB(255, 200, 100)
+        DisableDamageRepeater()
+        print("⏹️ REPETIDOR DESACTIVADO")
+    end
+end)
+
+DelayInput.FocusLost:Connect(function()
+    if damageRepeaterEnabled then
+        StatusText.Text = "✅ INFINITO - " .. string.format("%.2f", REPEAT_DELAY) .. "s entre golpes"
+    end
+end)
+
+print("♾️ INFINITE REPEATER CARGADO")
+print("⚡ Delay configurable: " .. REPEAT_DELAY .. " segundos")
+print("💡 Activa el repetidor desde la interfaz")
