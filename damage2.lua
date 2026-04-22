@@ -16,7 +16,7 @@ local function DealDamage(target)
     if not hum or hum.Health <= 0 then return end
     
     local now = tick()
-    if lastDamage[target] and now - lastDamage[target] < 0.3 then return end  -- Delay 0.3 segundos
+    if lastDamage[target] and now - lastDamage[target] < 1 then return end  -- Delay 0.3 segundos
     lastDamage[target] = now
     
     local myHRP = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
