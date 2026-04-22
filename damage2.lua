@@ -1,5 +1,4 @@
-local REPEAT_AMOUNT = 999999  -- Número INFINITO de veces
-local REPEAT_DELAY = 0.1      -- Delay de 0.1 segundos
+local REPEAT_AMOUNT = 26  -- Número de veces que repetirá cada golpe
 
 -- Excepciones - eventos que NO se repetirán
 local exceptions = {
@@ -8,6 +7,10 @@ local exceptions = {
     "NinjaBombEvent",
     "BulletUpdateEvent"
 }
+
+-- Cooldown entre repeticiones
+local HIT_COOLDOWN = 0.3  -- 0.3 segundos entre cada repetición
+local lastHitTimes = {}  -- Almacena último golpe por remote
 
 -- Interceptar y repetir llamadas remotas
 local mt = getrawmetatable(game)
@@ -21,7 +24,7 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local damageRepeaterEnabled = false
 
--- ==================== UI SIMPLE (COMO LA QUE FUNCIONA) ====================
+-- ==================== UI MEJORADA Y ORDENADA ====================
 local function CreateMainFrame()
     local ScreenGui = player.PlayerGui:FindFirstChild("DamageRepeaterGUI") 
         or Instance.new("ScreenGui")
@@ -31,8 +34,8 @@ local function CreateMainFrame()
     
     -- Frame principal
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 200, 0, 120)
-    Frame.Position = UDim2.new(0.5, -100, 0.5, -60)
+    Frame.Size = UDim2.new(0, 200, 0, 155)
+    Frame.Position = UDim2.new(0.5, -100, 0.5, -77)
     Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     Frame.BorderSizePixel = 0
     Frame.ClipsDescendants = true
@@ -48,7 +51,7 @@ local function CreateMainFrame()
     UIStroke.Thickness = 1
     UIStroke.Parent = Frame
     
-    -- Barra superior
+    -- Barra superior (arrastrable)
     local TopBar = Instance.new("Frame")
     TopBar.Size = UDim2.new(1, 0, 0, 32)
     TopBar.Position = UDim2.new(0, 0, 0, 0)
@@ -60,12 +63,12 @@ local function CreateMainFrame()
     TopCorner.CornerRadius = UDim.new(0, 10)
     TopCorner.Parent = TopBar
     
-    -- Título
+    -- Icono y título
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(0.7, 0, 1, 0)
     Title.Position = UDim2.new(0, 12, 0, 0)
     Title.BackgroundTransparency = 1
-    Title.Text = "♾️ INFINITE REPEATER"
+    Title.Text = "⚡ DAMAGE REPEATER"
     Title.TextColor3 = Color3.fromRGB(255, 255, 255)
     Title.TextSize = 12
     Title.Font = Enum.Font.GothamBold
@@ -95,14 +98,22 @@ local function CreateMainFrame()
         Frame:Destroy()
     end)
     
-    -- Contenedor
+    -- Contenedor principal de contenido
     local Container = Instance.new("Frame")
     Container.Size = UDim2.new(1, 0, 1, -32)
     Container.Position = UDim2.new(0, 0, 0, 32)
     Container.BackgroundTransparency = 1
     Container.Parent = Frame
     
-    -- Botón de activar
+    -- Línea divisoria
+    local Divider = Instance.new("Frame")
+    Divider.Size = UDim2.new(0.9, 0, 0, 1)
+    Divider.Position = UDim2.new(0.05, 0, 0, 0)
+    Divider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    Divider.BorderSizePixel = 0
+    Divider.Parent = Container
+    
+    -- Botón de activar (centrado y más grande)
     local ToggleBtn = Instance.new("TextButton")
     ToggleBtn.Size = UDim2.new(0.8, 0, 0, 40)
     ToggleBtn.Position = UDim2.new(0.1, 0, 0.15, 0)
@@ -117,18 +128,138 @@ local function CreateMainFrame()
     ToggleCorner.CornerRadius = UDim.new(0, 8)
     ToggleCorner.Parent = ToggleBtn
     
-    -- Texto de estado
+    -- Efecto hover
+    ToggleBtn.MouseEnter:Connect(function()
+        if not damageRepeaterEnabled then
+            ToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+        else
+            ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 90, 50)
+        end
+    end)
+    
+    ToggleBtn.MouseLeave:Connect(function()
+        if not damageRepeaterEnabled then
+            ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+        else
+            ToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 85, 45)
+        end
+    end)
+    
+    -- Sección de repeticiones
+    local RepeatSection = Instance.new("Frame")
+    RepeatSection.Size = UDim2.new(1, 0, 0, 45)
+    RepeatSection.Position = UDim2.new(0, 0, 0.55, 0)
+    RepeatSection.BackgroundTransparency = 1
+    RepeatSection.Parent = Container
+    
+    -- Label de repeticiones
+    local RepeatLabel = Instance.new("TextLabel")
+    RepeatLabel.Size = UDim2.new(0.45, 0, 0, 25)
+    RepeatLabel.Position = UDim2.new(0.05, 0, 0, 0)
+    RepeatLabel.BackgroundTransparency = 1
+    RepeatLabel.Text = "🔄 REPETICIONES:"
+    RepeatLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+    RepeatLabel.TextSize = 11
+    RepeatLabel.Font = Enum.Font.GothamBold
+    RepeatLabel.TextXAlignment = Enum.TextXAlignment.Left
+    RepeatLabel.Parent = RepeatSection
+    
+    -- Input de repeticiones
+    local RepeatInput = Instance.new("TextBox")
+    RepeatInput.Size = UDim2.new(0.35, 0, 0, 32)
+    RepeatInput.Position = UDim2.new(0.6, 0, 0, -3)
+    RepeatInput.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    RepeatInput.Text = tostring(REPEAT_AMOUNT)
+    RepeatInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RepeatInput.Font = Enum.Font.Gotham
+    RepeatInput.TextSize = 14
+    RepeatInput.TextXAlignment = Enum.TextXAlignment.Center
+    RepeatInput.Parent = RepeatSection
+    
+    local InputCorner = Instance.new("UICorner")
+    InputCorner.CornerRadius = UDim.new(0, 6)
+    InputCorner.Parent = RepeatInput
+    
+    -- Indicador de rango
+    local RangeHint = Instance.new("TextLabel")
+    RangeHint.Size = UDim2.new(0.35, 0, 0, 15)
+    RangeHint.Position = UDim2.new(0.6, 0, 0.7, 0)
+    RangeHint.BackgroundTransparency = 1
+    RangeHint.Text = "(1 - 100)"
+    RangeHint.TextColor3 = Color3.fromRGB(120, 120, 130)
+    RangeHint.TextSize = 9
+    RangeHint.Font = Enum.Font.Gotham
+    RangeHint.TextXAlignment = Enum.TextXAlignment.Center
+    RangeHint.Parent = RepeatSection
+    
+    -- Sección de cooldown
+    local CooldownSection = Instance.new("Frame")
+    CooldownSection.Size = UDim2.new(1, 0, 0, 35)
+    CooldownSection.Position = UDim2.new(0, 0, 0.85, 0)
+    CooldownSection.BackgroundTransparency = 1
+    CooldownSection.Parent = Container
+    
+    -- Label de cooldown
+    local CooldownLabel = Instance.new("TextLabel")
+    CooldownLabel.Size = UDim2.new(0.45, 0, 0, 25)
+    CooldownLabel.Position = UDim2.new(0.05, 0, 0, 0)
+    CooldownLabel.BackgroundTransparency = 1
+    CooldownLabel.Text = "⏱️ COOLDOWN (seg):"
+    CooldownLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+    CooldownLabel.TextSize = 11
+    CooldownLabel.Font = Enum.Font.GothamBold
+    CooldownLabel.TextXAlignment = Enum.TextXAlignment.Left
+    CooldownLabel.Parent = CooldownSection
+    
+    -- Input de cooldown
+    local CooldownInput = Instance.new("TextBox")
+    CooldownInput.Size = UDim2.new(0.35, 0, 0, 32)
+    CooldownInput.Position = UDim2.new(0.6, 0, 0, -3)
+    CooldownInput.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    CooldownInput.Text = string.format("%.1f", HIT_COOLDOWN)
+    CooldownInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CooldownInput.Font = Enum.Font.Gotham
+    CooldownInput.TextSize = 14
+    CooldownInput.TextXAlignment = Enum.TextXAlignment.Center
+    CooldownInput.Parent = CooldownSection
+    
+    local CooldownCorner = Instance.new("UICorner")
+    CooldownCorner.CornerRadius = UDim.new(0, 6)
+    CooldownCorner.Parent = CooldownInput
+    
+    local CooldownHint = Instance.new("TextLabel")
+    CooldownHint.Size = UDim2.new(0.35, 0, 0, 15)
+    CooldownHint.Position = UDim2.new(0.6, 0, 0.7, 0)
+    CooldownHint.BackgroundTransparency = 1
+    CooldownHint.Text = "(0.05 - 2.0)"
+    CooldownHint.TextColor3 = Color3.fromRGB(120, 120, 130)
+    CooldownHint.TextSize = 9
+    CooldownHint.Font = Enum.Font.Gotham
+    CooldownHint.TextXAlignment = Enum.TextXAlignment.Center
+    CooldownHint.Parent = CooldownSection
+    
+    CooldownInput.FocusLost:Connect(function()
+        local num = tonumber(CooldownInput.Text)
+        if num and num >= 0.05 and num <= 2.0 then
+            HIT_COOLDOWN = num
+            CooldownInput.Text = string.format("%.2f", HIT_COOLDOWN)
+        else
+            CooldownInput.Text = string.format("%.1f", HIT_COOLDOWN)
+        end
+    end)
+    
+    -- Estado actual (texto informativo pequeño)
     local StatusText = Instance.new("TextLabel")
     StatusText.Size = UDim2.new(1, 0, 0, 18)
-    StatusText.Position = UDim2.new(0, 0, 0.65, 0)
+    StatusText.Position = UDim2.new(0, 0, 0.98, 0)
     StatusText.BackgroundTransparency = 1
-    StatusText.Text = "♾️ INFINITO | 0.1s de delay"
-    StatusText.TextColor3 = Color3.fromRGB(100, 200, 100)
-    StatusText.TextSize = 10
+    StatusText.Text = "⚡ Repite golpes con cooldown entre repeticiones"
+    StatusText.TextColor3 = Color3.fromRGB(100, 100, 110)
+    StatusText.TextSize = 8
     StatusText.Font = Enum.Font.Gotham
     StatusText.Parent = Container
     
-    -- Movimiento de ventana
+    -- ==================== MOVIMIENTO TÁCTIL ====================
     local dragging = false
     local dragStartMousePos = nil
     local dragStartFramePos = nil
@@ -147,7 +278,9 @@ local function CreateMainFrame()
     local function OnInputBegan(input, gameProcessed)
         if gameProcessed then return end
         
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            
             local mousePos = input.Position
             local frameAbsPos = Frame.AbsolutePosition
             local frameSize = Frame.AbsoluteSize
@@ -159,9 +292,12 @@ local function CreateMainFrame()
                 dragStartMousePos = input.Position
                 dragStartFramePos = Frame.Position
                 
+                TweenService:Create(TopBar, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(45, 45, 50)}):Play()
+                
                 input.Changed:Connect(function()
                     if input.UserInputState == Enum.UserInputState.End then
                         dragging = false
+                        TweenService:Create(TopBar, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(30, 30, 35)}):Play()
                     end
                 end)
             end
@@ -170,7 +306,8 @@ local function CreateMainFrame()
     
     local function OnInputChanged(input, gameProcessed)
         if gameProcessed then return end
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or
+           input.UserInputType == Enum.UserInputType.Touch) then
             UpdateFramePosition(input.Position)
         end
     end
@@ -178,10 +315,10 @@ local function CreateMainFrame()
     UserInputService.InputBegan:Connect(OnInputBegan)
     UserInputService.InputChanged:Connect(OnInputChanged)
     
-    return ToggleBtn, StatusText
+    return ToggleBtn, RepeatInput, CooldownInput, StatusText
 end
 
--- ==================== FUNCIÓN PRINCIPAL ====================
+-- ==================== FUNCIÓN PRINCIPAL CON COOLDOWN ====================
 local function EnableDamageRepeater()
     mt.__namecall = function(self, ...)
         local method = getnamecallmethod()
@@ -198,15 +335,29 @@ local function EnableDamageRepeater()
                string.find(self.Name:lower(), "attack") or
                string.find(self.Name:lower(), "melee") then
                 
-                -- Repetición INFINITA con delay
-                if damageRepeaterEnabled then
-                    spawn(function()
-                        for i = 1, REPEAT_AMOUNT do
-                            old(self, ...)
-                            wait(REPEAT_DELAY)
-                        end
-                    end)
+                local remoteKey = tostring(self)
+                local now = tick()
+                
+                for i = 1, REPEAT_AMOUNT do
+                    local lastTime = lastHitTimes[remoteKey] or 0
+                    local timeSinceLast = now - lastTime
+                    
+                    if timeSinceLast < HIT_COOLDOWN and i > 1 then
+                        wait(HIT_COOLDOWN - timeSinceLast)
+                        now = tick()
+                    end
+                    
+                    old(self, ...)
+                    lastHitTimes[remoteKey] = tick()
+                    now = tick()
+                    
+                    if i < REPEAT_AMOUNT and HIT_COOLDOWN > 0 then
+                        wait(HIT_COOLDOWN)
+                        now = tick()
+                    end
                 end
+                
+                return
             end
         end
         
@@ -215,31 +366,11 @@ local function EnableDamageRepeater()
 end
 
 local function DisableDamageRepeater()
-    mt.__namecall = function(self, ...)
-        local method = getnamecallmethod()
-        
-        for _, exception in pairs(exceptions) do
-            if self.Name == exception then
-                return old(self, ...)
-            end
-        end
-        
-        if method == "FireServer" or method == "InvokeServer" then
-            -- Solo reconoce, no repite
-            if string.find(self.Name:lower(), "hit") or 
-               string.find(self.Name:lower(), "damage") or
-               string.find(self.Name:lower(), "attack") or
-               string.find(self.Name:lower(), "melee") then
-                -- No hacer nada, solo pasar
-            end
-        end
-        
-        return old(self, ...)
-    end
+    mt.__namecall = old
 end
 
 -- ==================== INICIALIZAR ====================
-local ToggleBtn, StatusText = CreateMainFrame()
+local ToggleBtn, RepeatInput, CooldownInput, StatusText = CreateMainFrame()
 
 ToggleBtn.MouseButton1Click:Connect(function()
     damageRepeaterEnabled = not damageRepeaterEnabled
@@ -248,23 +379,30 @@ ToggleBtn.MouseButton1Click:Connect(function()
         ToggleBtn.Text = "◉  REPEATER: ON  ◉"
         ToggleBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 85, 45)
-        StatusText.Text = "✅ INFINITO ACTIVADO | Delay: " .. REPEAT_DELAY .. "s"
-        StatusText.TextColor3 = Color3.fromRGB(100, 255, 100)
+        StatusText.Text = "✅ ACTIVADO - " .. REPEAT_AMOUNT .. "x con " .. string.format("%.2f", HIT_COOLDOWN) .. "s entre repeticiones"
+        StatusText.TextColor3 = Color3.fromRGB(100, 200, 100)
         EnableDamageRepeater()
-        print("♾️ REPETIDOR INFINITO ACTIVADO - Cada " .. REPEAT_DELAY .. " segundos")
     else
         ToggleBtn.Text = "◉  REPEATER: OFF  ◉"
         ToggleBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-        StatusText.Text = "⚡ REPETIDOR DESACTIVADO"
-        StatusText.TextColor3 = Color3.fromRGB(255, 100, 100)
+        StatusText.Text = "⚡ Repite golpes con cooldown entre repeticiones"
+        StatusText.TextColor3 = Color3.fromRGB(100, 100, 110)
         DisableDamageRepeater()
-        print("⏹️ REPETIDOR DESACTIVADO")
     end
 end)
 
-print("=" .. string.rep("=", 40))
-print("♾️ INFINITE REPEATER v5 CARGADO")
-print("⚡ Delay: " .. REPEAT_DELAY .. " segundos")
-print("💡 Presiona el botón para activar")
-print("=" .. string.rep("=", 40))
+-- Actualizar texto de estado cuando cambian los valores
+RepeatInput.FocusLost:Connect(function()
+    if damageRepeaterEnabled then
+        StatusText.Text = "✅ ACTIVADO - " .. REPEAT_AMOUNT .. "x con " .. string.format("%.2f", HIT_COOLDOWN) .. "s entre repeticiones"
+    end
+end)
+
+CooldownInput.FocusLost:Connect(function()
+    if damageRepeaterEnabled then
+        StatusText.Text = "✅ ACTIVADO - " .. REPEAT_AMOUNT .. "x con " .. string.format("%.2f", HIT_COOLDOWN) .. "s entre repeticiones"
+    end
+end)
+
+print("✅ Damage Repeater cargado - Con cooldown de " .. HIT_COOLDOWN .. "s entre repeticiones")
