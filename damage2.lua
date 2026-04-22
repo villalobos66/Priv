@@ -8,10 +8,6 @@ local exceptions = {
     "BulletUpdateEvent"
 }
 
--- Cooldown entre repeticiones
-local HIT_COOLDOWN = 0.3  -- 0.3 segundos entre cada repetición
-local lastHitTimes = {}  -- Almacena último golpe por remote
-
 -- Interceptar y repetir llamadas remotas
 local mt = getrawmetatable(game)
 local old = mt.__namecall
@@ -34,8 +30,8 @@ local function CreateMainFrame()
     
     -- Frame principal
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 200, 0, 155)
-    Frame.Position = UDim2.new(0.5, -100, 0.5, -77)
+    Frame.Size = UDim2.new(0, 200, 0, 135)
+    Frame.Position = UDim2.new(0.5, -100, 0.5, -67)
     Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     Frame.BorderSizePixel = 0
     Frame.ClipsDescendants = true
@@ -116,7 +112,7 @@ local function CreateMainFrame()
     -- Botón de activar (centrado y más grande)
     local ToggleBtn = Instance.new("TextButton")
     ToggleBtn.Size = UDim2.new(0.8, 0, 0, 40)
-    ToggleBtn.Position = UDim2.new(0.1, 0, 0.15, 0)
+    ToggleBtn.Position = UDim2.new(0.1, 0, 0.2, 0)
     ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
     ToggleBtn.Text = "◉  REPEATER: OFF  ◉"
     ToggleBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
@@ -148,7 +144,7 @@ local function CreateMainFrame()
     -- Sección de repeticiones
     local RepeatSection = Instance.new("Frame")
     RepeatSection.Size = UDim2.new(1, 0, 0, 45)
-    RepeatSection.Position = UDim2.new(0, 0, 0.55, 0)
+    RepeatSection.Position = UDim2.new(0, 0, 0.65, 0)
     RepeatSection.BackgroundTransparency = 1
     RepeatSection.Parent = Container
     
@@ -192,69 +188,23 @@ local function CreateMainFrame()
     RangeHint.TextXAlignment = Enum.TextXAlignment.Center
     RangeHint.Parent = RepeatSection
     
-    -- Sección de cooldown
-    local CooldownSection = Instance.new("Frame")
-    CooldownSection.Size = UDim2.new(1, 0, 0, 35)
-    CooldownSection.Position = UDim2.new(0, 0, 0.85, 0)
-    CooldownSection.BackgroundTransparency = 1
-    CooldownSection.Parent = Container
-    
-    -- Label de cooldown
-    local CooldownLabel = Instance.new("TextLabel")
-    CooldownLabel.Size = UDim2.new(0.45, 0, 0, 25)
-    CooldownLabel.Position = UDim2.new(0.05, 0, 0, 0)
-    CooldownLabel.BackgroundTransparency = 1
-    CooldownLabel.Text = "⏱️ COOLDOWN (seg):"
-    CooldownLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
-    CooldownLabel.TextSize = 11
-    CooldownLabel.Font = Enum.Font.GothamBold
-    CooldownLabel.TextXAlignment = Enum.TextXAlignment.Left
-    CooldownLabel.Parent = CooldownSection
-    
-    -- Input de cooldown
-    local CooldownInput = Instance.new("TextBox")
-    CooldownInput.Size = UDim2.new(0.35, 0, 0, 32)
-    CooldownInput.Position = UDim2.new(0.6, 0, 0, -3)
-    CooldownInput.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-    CooldownInput.Text = string.format("%.1f", HIT_COOLDOWN)
-    CooldownInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-    CooldownInput.Font = Enum.Font.Gotham
-    CooldownInput.TextSize = 14
-    CooldownInput.TextXAlignment = Enum.TextXAlignment.Center
-    CooldownInput.Parent = CooldownSection
-    
-    local CooldownCorner = Instance.new("UICorner")
-    CooldownCorner.CornerRadius = UDim.new(0, 6)
-    CooldownCorner.Parent = CooldownInput
-    
-    local CooldownHint = Instance.new("TextLabel")
-    CooldownHint.Size = UDim2.new(0.35, 0, 0, 15)
-    CooldownHint.Position = UDim2.new(0.6, 0, 0.7, 0)
-    CooldownHint.BackgroundTransparency = 1
-    CooldownHint.Text = "(0.05 - 2.0)"
-    CooldownHint.TextColor3 = Color3.fromRGB(120, 120, 130)
-    CooldownHint.TextSize = 9
-    CooldownHint.Font = Enum.Font.Gotham
-    CooldownHint.TextXAlignment = Enum.TextXAlignment.Center
-    CooldownHint.Parent = CooldownSection
-    
-    CooldownInput.FocusLost:Connect(function()
-        local num = tonumber(CooldownInput.Text)
-        if num and num >= 0.05 and num <= 2.0 then
-            HIT_COOLDOWN = num
-            CooldownInput.Text = string.format("%.2f", HIT_COOLDOWN)
+    RepeatInput.FocusLost:Connect(function()
+        local num = tonumber(RepeatInput.Text)
+        if num and num >= 1 and num <= 100 then
+            REPEAT_AMOUNT = math.floor(num)
+            RepeatInput.Text = tostring(REPEAT_AMOUNT)
         else
-            CooldownInput.Text = string.format("%.1f", HIT_COOLDOWN)
+            RepeatInput.Text = tostring(REPEAT_AMOUNT)
         end
     end)
     
     -- Estado actual (texto informativo pequeño)
     local StatusText = Instance.new("TextLabel")
     StatusText.Size = UDim2.new(1, 0, 0, 18)
-    StatusText.Position = UDim2.new(0, 0, 0.98, 0)
+    StatusText.Position = UDim2.new(0, 0, 0.9, 0)
     StatusText.BackgroundTransparency = 1
-    StatusText.Text = "⚡ Repite golpes con cooldown entre repeticiones"
-    StatusText.TextColor3 = Color3.fromRGB(100, 100, 110)
+    StatusText.Text = "⚡ Repite INSTANTÁNEO (sin cooldown)"
+    StatusText.TextColor3 = Color3.fromRGB(100, 255, 100)
     StatusText.TextSize = 8
     StatusText.Font = Enum.Font.Gotham
     StatusText.Parent = Container
@@ -315,10 +265,10 @@ local function CreateMainFrame()
     UserInputService.InputBegan:Connect(OnInputBegan)
     UserInputService.InputChanged:Connect(OnInputChanged)
     
-    return ToggleBtn, RepeatInput, CooldownInput, StatusText
+    return ToggleBtn, RepeatInput, StatusText
 end
 
--- ==================== FUNCIÓN PRINCIPAL CON COOLDOWN ====================
+-- ==================== FUNCIÓN PRINCIPAL (INSTANTÁNEA - SIN COOLDOWN) ====================
 local function EnableDamageRepeater()
     mt.__namecall = function(self, ...)
         local method = getnamecallmethod()
@@ -335,28 +285,10 @@ local function EnableDamageRepeater()
                string.find(self.Name:lower(), "attack") or
                string.find(self.Name:lower(), "melee") then
                 
-                local remoteKey = tostring(self)
-                local now = tick()
-                
+                -- Repite instantáneamente en el mismo frame
                 for i = 1, REPEAT_AMOUNT do
-                    local lastTime = lastHitTimes[remoteKey] or 0
-                    local timeSinceLast = now - lastTime
-                    
-                    if timeSinceLast < HIT_COOLDOWN and i > 1 then
-                        wait(HIT_COOLDOWN - timeSinceLast)
-                        now = tick()
-                    end
-                    
                     old(self, ...)
-                    lastHitTimes[remoteKey] = tick()
-                    now = tick()
-                    
-                    if i < REPEAT_AMOUNT and HIT_COOLDOWN > 0 then
-                        wait(HIT_COOLDOWN)
-                        now = tick()
-                    end
                 end
-                
                 return
             end
         end
@@ -370,7 +302,7 @@ local function DisableDamageRepeater()
 end
 
 -- ==================== INICIALIZAR ====================
-local ToggleBtn, RepeatInput, CooldownInput, StatusText = CreateMainFrame()
+local ToggleBtn, RepeatInput, StatusText = CreateMainFrame()
 
 ToggleBtn.MouseButton1Click:Connect(function()
     damageRepeaterEnabled = not damageRepeaterEnabled
@@ -379,30 +311,24 @@ ToggleBtn.MouseButton1Click:Connect(function()
         ToggleBtn.Text = "◉  REPEATER: ON  ◉"
         ToggleBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 85, 45)
-        StatusText.Text = "✅ ACTIVADO - " .. REPEAT_AMOUNT .. "x con " .. string.format("%.2f", HIT_COOLDOWN) .. "s entre repeticiones"
-        StatusText.TextColor3 = Color3.fromRGB(100, 200, 100)
+        StatusText.Text = "✅ ACTIVADO - " .. REPEAT_AMOUNT .. "x INSTANTÁNEO"
+        StatusText.TextColor3 = Color3.fromRGB(100, 255, 100)
         EnableDamageRepeater()
     else
         ToggleBtn.Text = "◉  REPEATER: OFF  ◉"
         ToggleBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-        StatusText.Text = "⚡ Repite golpes con cooldown entre repeticiones"
-        StatusText.TextColor3 = Color3.fromRGB(100, 100, 110)
+        StatusText.Text = "⚡ Repite INSTANTÁNEO (sin cooldown)"
+        StatusText.TextColor3 = Color3.fromRGB(100, 255, 100)
         DisableDamageRepeater()
     end
 end)
 
--- Actualizar texto de estado cuando cambian los valores
+-- Actualizar texto de estado cuando cambia el número de repeticiones
 RepeatInput.FocusLost:Connect(function()
     if damageRepeaterEnabled then
-        StatusText.Text = "✅ ACTIVADO - " .. REPEAT_AMOUNT .. "x con " .. string.format("%.2f", HIT_COOLDOWN) .. "s entre repeticiones"
+        StatusText.Text = "✅ ACTIVADO - " .. REPEAT_AMOUNT .. "x INSTANTÁNEO"
     end
 end)
 
-CooldownInput.FocusLost:Connect(function()
-    if damageRepeaterEnabled then
-        StatusText.Text = "✅ ACTIVADO - " .. REPEAT_AMOUNT .. "x con " .. string.format("%.2f", HIT_COOLDOWN) .. "s entre repeticiones"
-    end
-end)
-
-print("✅ Damage Repeater cargado - Con cooldown de " .. HIT_COOLDOWN .. "s entre repeticiones")
+print("✅ Damage Repeater cargado - Modo INSTANTÁNEO (sin cooldown)")
