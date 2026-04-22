@@ -9,10 +9,7 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 
 -- ==================== HITREMOTE CORRECTO ====================
-local HitRemote = game:GetService("ReplicatedStorage")
-    :WaitForChild("Hit")
-
-print("✅ HitRemote encontrado:", HitRemote)
+local HitRemote = ("Hit")
 
 -- ==================== FUNCIÓN PARA HACER DAÑO ====================
 local function DealDamageToTarget(target)
