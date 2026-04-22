@@ -1,46 +1,145 @@
-local REPEAT_AMOUNT = 26  -- Número de veces que repetirá cada daño
+local REPEAT_AMOUNT = 26  -- Veces que repetirá cada golpe por tick
+local KillAuraEnabled = false
+local AutoDamageEnabled = false  -- Nuevo modo: daño automático puro
 
--- Excepciones - eventos que NO se repetirán
-local exceptions = {
-    "SayMessageRequest",
-    "MeleeUpdateEvent", 
-    "NinjaBombEvent",
-    "BulletUpdateEvent"
-}
-
--- Interceptar y repetir llamadas remotas
-local mt = getrawmetatable(game)
-local old = mt.__namecall
-setreadonly(mt, false)
-
--- Variables para UI y sistema de proximidad
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
-local damageRepeaterEnabled = false
-local proximityDamageEnabled = false
-local proximityRadius = 15 -- Radio en studs para detectar enemigos
-local enemiesInRange = {}
-local currentTarget = nil
+-- Encuentra el HitRemote automáticamente
+local HitRemote = nil
+local function FindHitRemote()
+    -- Buscar en ReplicatedStorage
+    for _, obj in pairs(game:GetService("ReplicatedStorage"):GetChildren()) do
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            if obj.Name:lower():find("hit") or obj.Name:lower():find("damage") or obj.Name:lower():find("attack") then
+                HitRemote = obj
+                print("✅ HitRemote encontrado:", obj.Name)
+                return
+            end
+        end
+    end
+    
+    -- Buscar en Workspace
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            if obj.Name:lower():find("hit") or obj.Name:lower():find("damage") or obj.Name:lower():find("attack") then
+                HitRemote = obj
+                print("✅ HitRemote encontrado:", obj.Name)
+                return
+            end
+        end
+    end
+    
+    -- Buscar en el jugador
+    for _, obj in pairs(player:GetChildren()) do
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            if obj.Name:lower():find("hit") or obj.Name:lower():find("damage") or obj.Name:lower():find("attack") then
+                HitRemote = obj
+                print("✅ HitRemote encontrado:", obj.Name)
+                return
+            end
+        end
+    end
+    
+    print("❌ No se encontró HitRemote - Usa el nombre correcto")
+end
 
--- ==================== UI MEJORADA Y ORDENADA ====================
-local function CreateMainFrame()
-    local ScreenGui = player.PlayerGui:FindFirstChild("DamageRepeaterGUI") 
+FindHitRemote()
+
+-- ==================== SISTEMA DE DAÑO AUTOMÁTICO ====================
+local function DealDamageToTarget(target)
+    if not target or not target.Character then return false end
+    
+    local hum = target.Character:FindFirstChild("Humanoid")
+    local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+    local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not hum or hum.Health <= 0 then return false end
+    if not hrp or not myHRP then return false end
+    
+    if not HitRemote then
+        FindHitRemote()
+        if not HitRemote then return false end
+    end
+    
+    -- Preparar argumentos (como en tu script original)
+    local args = {
+        hum,  -- El humanoid del enemigo
+        vector.new(myHRP.Position.X, myHRP.Position.Y, myHRP.Position.Z)  -- Posición del jugador
+    }
+    
+    local success = false
+    
+    -- Aplicar daño múltiples veces
+    for i = 1, REPEAT_AMOUNT do
+        pcall(function()
+            if HitRemote:IsA("RemoteFunction") then
+                HitRemote:InvokeServer(unpack(args))
+            else
+                HitRemote:FireServer(unpack(args))
+            end
+            success = true
+        end)
+    end
+    
+    return success
+end
+
+-- Loop principal de daño automático (SIN NECESIDAD DE GOLPEAR)
+local autoDamageConnection = nil
+
+local function StartAutoDamage()
+    if autoDamageConnection then return end
+    
+    autoDamageConnection = RunService.Heartbeat:Connect(function()
+        if not AutoDamageEnabled then return end
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+        
+        local myHRP = player.Character.HumanoidRootPart
+        local maxRange = 15  -- Radio de daño automático (studs)
+        
+        -- Buscar todos los enemigos en rango
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") then
+                local hum = p.Character.Humanoid
+                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                
+                if hum.Health > 0 and hrp then
+                    local dist = (hrp.Position - myHRP.Position).Magnitude
+                    
+                    -- Si está en rango, hacer daño AUTOMÁTICAMENTE
+                    if dist <= maxRange then
+                        DealDamageToTarget(p)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function StopAutoDamage()
+    if autoDamageConnection then
+        autoDamageConnection:Disconnect()
+        autoDamageConnection = nil
+    end
+end
+
+-- ==================== UI MEJORADA ====================
+local function CreateUI()
+    local ScreenGui = player.PlayerGui:FindFirstChild("AutoDamageGUI") 
         or Instance.new("ScreenGui")
-    ScreenGui.Name = "DamageRepeaterGUI"
+    ScreenGui.Name = "AutoDamageGUI"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = player.PlayerGui
     
-    -- Frame principal (más grande para más opciones)
+    -- Frame principal
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 240, 0, 200)
-    Frame.Position = UDim2.new(0.5, -120, 0.5, -100)
-    Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Frame.Size = UDim2.new(0, 220, 0, 160)
+    Frame.Position = UDim2.new(0.5, -110, 0.5, -80)
+    Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
     Frame.BorderSizePixel = 0
     Frame.ClipsDescendants = true
     Frame.Parent = ScreenGui
@@ -55,10 +154,9 @@ local function CreateMainFrame()
     UIStroke.Thickness = 1
     UIStroke.Parent = Frame
     
-    -- Barra superior (arrastrable)
+    -- Barra superior
     local TopBar = Instance.new("Frame")
     TopBar.Size = UDim2.new(1, 0, 0, 32)
-    TopBar.Position = UDim2.new(0, 0, 0, 0)
     TopBar.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
     TopBar.BorderSizePixel = 0
     TopBar.Parent = Frame
@@ -67,12 +165,11 @@ local function CreateMainFrame()
     TopCorner.CornerRadius = UDim.new(0, 10)
     TopCorner.Parent = TopBar
     
-    -- Icono y título
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(0.7, 0, 1, 0)
     Title.Position = UDim2.new(0, 12, 0, 0)
     Title.BackgroundTransparency = 1
-    Title.Text = "⚡ PROXIMITY DAMAGE"
+    Title.Text = "⚡ AUTO DAMAGE ⚡"
     Title.TextColor3 = Color3.fromRGB(255, 255, 255)
     Title.TextSize = 12
     Title.Font = Enum.Font.GothamBold
@@ -95,98 +192,44 @@ local function CreateMainFrame()
     CloseCorner.Parent = CloseBtn
     
     CloseBtn.MouseButton1Click:Connect(function()
-        if damageRepeaterEnabled then
-            mt.__namecall = old
-            setreadonly(mt, true)
-        end
-        if proximityDamageEnabled then
-            proximityDamageEnabled = false
-        end
+        AutoDamageEnabled = false
+        StopAutoDamage()
         Frame:Destroy()
     end)
     
-    -- Contenedor principal de contenido
+    -- Contenedor
     local Container = Instance.new("Frame")
     Container.Size = UDim2.new(1, 0, 1, -32)
     Container.Position = UDim2.new(0, 0, 0, 32)
     Container.BackgroundTransparency = 1
     Container.Parent = Frame
     
-    -- Botón principal: Modo Proximidad
-    local ProximityBtn = Instance.new("TextButton")
-    ProximityBtn.Size = UDim2.new(0.8, 0, 0, 40)
-    ProximityBtn.Position = UDim2.new(0.1, 0, 0.05, 0)
-    ProximityBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-    ProximityBtn.Text = "🔘 PROXIMITY: OFF 🔘"
-    ProximityBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-    ProximityBtn.Font = Enum.Font.GothamBold
-    ProximityBtn.TextSize = 12
-    ProximityBtn.Parent = Container
+    -- Botón principal
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Size = UDim2.new(0.8, 0, 0, 45)
+    ToggleBtn.Position = UDim2.new(0.1, 0, 0.1, 0)
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    ToggleBtn.Text = "🔴 AUTO DAMAGE: OFF"
+    ToggleBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+    ToggleBtn.Font = Enum.Font.GothamBold
+    ToggleBtn.TextSize = 12
+    ToggleBtn.Parent = Container
     
-    local ProxCorner = Instance.new("UICorner")
-    ProxCorner.CornerRadius = UDim.new(0, 8)
-    ProxCorner.Parent = ProximityBtn
+    local BtnCorner = Instance.new("UICorner")
+    BtnCorner.CornerRadius = UDim.new(0, 8)
+    BtnCorner.Parent = ToggleBtn
     
-    -- Botón secundario: Modo Golpes (opcional)
-    local HitRepeaterBtn = Instance.new("TextButton")
-    HitRepeaterBtn.Size = UDim2.new(0.8, 0, 0, 35)
-    HitRepeaterBtn.Position = UDim2.new(0.1, 0, 0.28, 0)
-    HitRepeaterBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-    HitRepeaterBtn.Text = "👊 HIT REPEATER: OFF 👊"
-    HitRepeaterBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    HitRepeaterBtn.Font = Enum.Font.Gotham
-    HitRepeaterBtn.TextSize = 11
-    HitRepeaterBtn.Parent = Container
-    
-    local HitCorner = Instance.new("UICorner")
-    HitCorner.CornerRadius = UDim.new(0, 8)
-    HitCorner.Parent = HitRepeaterBtn
-    
-    -- Sección de configuración
-    local ConfigSection = Instance.new("Frame")
-    ConfigSection.Size = UDim2.new(1, 0, 0, 70)
-    ConfigSection.Position = UDim2.new(0, 0, 0.55, 0)
-    ConfigSection.BackgroundTransparency = 1
-    ConfigSection.Parent = Container
-    
-    -- Radio de proximidad
-    local RadiusLabel = Instance.new("TextLabel")
-    RadiusLabel.Size = UDim2.new(0.45, 0, 0, 25)
-    RadiusLabel.Position = UDim2.new(0.05, 0, 0, 0)
-    RadiusLabel.BackgroundTransparency = 1
-    RadiusLabel.Text = "📡 RADIO (studs):"
-    RadiusLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
-    RadiusLabel.TextSize = 11
-    RadiusLabel.Font = Enum.Font.GothamBold
-    RadiusLabel.TextXAlignment = Enum.TextXAlignment.Left
-    RadiusLabel.Parent = ConfigSection
-    
-    local RadiusInput = Instance.new("TextBox")
-    RadiusInput.Size = UDim2.new(0.35, 0, 0, 32)
-    RadiusInput.Position = UDim2.new(0.6, 0, 0, -3)
-    RadiusInput.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-    RadiusInput.Text = tostring(proximityRadius)
-    RadiusInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-    RadiusInput.Font = Enum.Font.Gotham
-    RadiusInput.TextSize = 14
-    RadiusInput.TextXAlignment = Enum.TextXAlignment.Center
-    RadiusInput.Parent = ConfigSection
-    
-    local RadiusCorner = Instance.new("UICorner")
-    RadiusCorner.CornerRadius = UDim.new(0, 6)
-    RadiusCorner.Parent = RadiusInput
-    
-    -- Repeticiones
+    -- Configuración de repeticiones
     local RepeatLabel = Instance.new("TextLabel")
     RepeatLabel.Size = UDim2.new(0.45, 0, 0, 25)
     RepeatLabel.Position = UDim2.new(0.05, 0, 0.45, 0)
     RepeatLabel.BackgroundTransparency = 1
-    RepeatLabel.Text = "🔄 DAÑO POR VEZ:"
+    RepeatLabel.Text = "🔄 DAÑO POR TICK:"
     RepeatLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
     RepeatLabel.TextSize = 11
     RepeatLabel.Font = Enum.Font.GothamBold
     RepeatLabel.TextXAlignment = Enum.TextXAlignment.Left
-    RepeatLabel.Parent = ConfigSection
+    RepeatLabel.Parent = Container
     
     local RepeatInput = Instance.new("TextBox")
     RepeatInput.Size = UDim2.new(0.35, 0, 0, 32)
@@ -197,16 +240,26 @@ local function CreateMainFrame()
     RepeatInput.Font = Enum.Font.Gotham
     RepeatInput.TextSize = 14
     RepeatInput.TextXAlignment = Enum.TextXAlignment.Center
-    RepeatInput.Parent = ConfigSection
+    RepeatInput.Parent = Container
     
-    local RepeatCorner = Instance.new("UICorner")
-    RepeatCorner.CornerRadius = UDim.new(0, 6)
-    RepeatCorner.Parent = RepeatInput
+    local InputCorner = Instance.new("UICorner")
+    InputCorner.CornerRadius = UDim.new(0, 6)
+    InputCorner.Parent = RepeatInput
+    
+    RepeatInput.FocusLost:Connect(function()
+        local num = tonumber(RepeatInput.Text)
+        if num and num >= 1 and num <= 100 then
+            REPEAT_AMOUNT = math.floor(num)
+            RepeatInput.Text = tostring(REPEAT_AMOUNT)
+        else
+            RepeatInput.Text = tostring(REPEAT_AMOUNT)
+        end
+    end)
     
     -- Estado actual
     local StatusText = Instance.new("TextLabel")
     StatusText.Size = UDim2.new(1, 0, 0, 30)
-    StatusText.Position = UDim2.new(0, 0, 0.85, 0)
+    StatusText.Position = UDim2.new(0, 0, 0.75, 0)
     StatusText.BackgroundTransparency = 1
     StatusText.Text = "⚡ Daño automático al acercarte"
     StatusText.TextColor3 = Color3.fromRGB(100, 100, 110)
@@ -214,7 +267,7 @@ local function CreateMainFrame()
     StatusText.Font = Enum.Font.Gotham
     StatusText.Parent = Container
     
-    -- ==================== MOVIMIENTO TÁCTIL ====================
+    -- Movimiento de la UI
     local dragging = false
     local dragStartMousePos = nil
     local dragStartFramePos = nil
@@ -230,225 +283,52 @@ local function CreateMainFrame()
         )
     end
     
-    local function OnInputBegan(input, gameProcessed)
-        if gameProcessed then return end
-        
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-           input.UserInputType == Enum.UserInputType.Touch then
-            
-            local mousePos = input.Position
-            local frameAbsPos = Frame.AbsolutePosition
-            local frameSize = Frame.AbsoluteSize
-            
-            if mousePos.X >= frameAbsPos.X and mousePos.X <= frameAbsPos.X + frameSize.X and
-               mousePos.Y >= frameAbsPos.Y and mousePos.Y <= frameAbsPos.Y + 32 then
-                
-                dragging = true
-                dragStartMousePos = input.Position
-                dragStartFramePos = Frame.Position
-                
-                TweenService:Create(TopBar, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(45, 45, 50)}):Play()
-                
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        dragging = false
-                        TweenService:Create(TopBar, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(30, 30, 35)}):Play()
-                    end
-                end)
-            end
+    TopBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStartMousePos = input.Position
+            dragStartFramePos = Frame.Position
         end
-    end
+    end)
     
-    local function OnInputChanged(input, gameProcessed)
-        if gameProcessed then return end
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or
-           input.UserInputType == Enum.UserInputType.Touch) then
+    TopBar.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             UpdateFramePosition(input.Position)
         end
-    end
+    end)
     
-    UserInputService.InputBegan:Connect(OnInputBegan)
-    UserInputService.InputChanged:Connect(OnInputChanged)
+    -- Acción del botón
+    ToggleBtn.MouseButton1Click:Connect(function()
+        AutoDamageEnabled = not AutoDamageEnabled
+        
+        if AutoDamageEnabled then
+            ToggleBtn.Text = "🟢 AUTO DAMAGE: ON"
+            ToggleBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
+            ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 90, 50)
+            StatusText.Text = "✅ ACTIVADO - Dañando automáticamente (radio 15 studs)"
+            StatusText.TextColor3 = Color3.fromRGB(100, 200, 100)
+            StartAutoDamage()
+            print("✅ Auto Damage ACTIVADO - Haciendo daño x" .. REPEAT_AMOUNT)
+        else
+            ToggleBtn.Text = "🔴 AUTO DAMAGE: OFF"
+            ToggleBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+            ToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            StatusText.Text = "⚡ Daño automático al acercarte"
+            StatusText.TextColor3 = Color3.fromRGB(100, 100, 110)
+            StopAutoDamage()
+            print("❌ Auto Damage DESACTIVADO")
+        end
+    end)
     
-    return ProximityBtn, HitRepeaterBtn, RadiusInput, RepeatInput, StatusText
+    return ToggleBtn
 end
 
--- ==================== SISTEMA DE PROXIMIDAD ====================
-local function FindEnemiesInRange()
-    enemiesInRange = {}
-    local rootPos = humanoidRootPart.Position
-    
-    for _, otherPlayer in pairs(Players:GetPlayers()) do
-        if otherPlayer ~= player then
-            local otherChar = otherPlayer.Character
-            if otherChar and otherChar:FindFirstChild("HumanoidRootPart") and otherChar:FindFirstChild("Humanoid") then
-                local otherRoot = otherChar.HumanoidRootPart
-                local distance = (rootPos - otherRoot.Position).Magnitude
-                
-                if distance <= proximityRadius then
-                    table.insert(enemiesInRange, otherPlayer)
-                end
-            end
-        end
-    end
-end
-
-local function DealDamageToTarget(target)
-    if not target or not target.Character then return end
-    
-    -- Buscar eventos remotos de daño (común en muchos juegos)
-    local remoteEvents = {
-        game:GetService("ReplicatedStorage"):FindFirstChild("Damage"),
-        game:GetService("ReplicatedStorage"):FindFirstChild("DealDamage"),
-        game:GetService("ReplicatedStorage"):FindFirstChild("Attack"),
-        game:GetService("ReplicatedStorage"):FindFirstChild("Hit"),
-        game:GetService("ReplicatedStorage"):FindFirstChild("RemoteEvent"),
-    }
-    
-    for _, remote in pairs(remoteEvents) do
-        if remote and remote:IsA("RemoteEvent") then
-            for i = 1, REPEAT_AMOUNT do
-                remote:FireServer(target.Character.HumanoidRootPart, target.Character.Humanoid)
-                remote:FireServer(target.Character)
-                remote:FireServer(target)
-                remote:FireServer(target.Character.HumanoidRootPart.Position)
-            end
-        elseif remote and remote:IsA("RemoteFunction") then
-            for i = 1, REPEAT_AMOUNT do
-                remote:InvokeServer(target.Character.HumanoidRootPart, target.Character.Humanoid)
-            end
-        end
-    end
-    
-    -- Método alternativo: buscar en el jugador
-    local playerRemote = target:FindFirstChild("RemoteEvent") or target:FindFirstChild("DamageRemote")
-    if playerRemote then
-        for i = 1, REPEAT_AMOUNT do
-            playerRemote:FireServer(target.Character.Humanoid)
-        end
-    end
-end
-
-local function ProximityDamageLoop()
-    while proximityDamageEnabled and RunService.RenderStepped:Wait() do
-        FindEnemiesInRange()
-        
-        for _, enemy in pairs(enemiesInRange) do
-            DealDamageToTarget(enemy)
-        end
-        
-        -- Actualizar UI con contador de enemigos
-        local statusText = game.Players.LocalPlayer.PlayerGui.DamageRepeaterGUI:FindFirstChild("Frame")
-        if statusText then
-            local container = statusText:FindFirstChild("Container")
-            if container then
-                local status = container:FindFirstChildWhichIsA("TextLabel")
-                if status and status.Text:find("📡") then
-                    status.Text = "📡 Enemigos cerca: " .. #enemiesInRange .. " | Daño x" .. REPEAT_AMOUNT
-                end
-            end
-        end
-    end
-end
-
--- ==================== FUNCIÓN GOLPES (REPEATER TRADICIONAL) ====================
-local hitRepeaterEnabled = false
-
-local function EnableHitRepeater()
-    mt.__namecall = function(self, ...)
-        local method = getnamecallmethod()
-        
-        for _, exception in pairs(exceptions) do
-            if self.Name == exception then
-                return old(self, ...)
-            end
-        end
-        
-        if method == "FireServer" or method == "InvokeServer" then
-            if string.find(self.Name:lower(), "hit") or 
-               string.find(self.Name:lower(), "damage") or
-               string.find(self.Name:lower(), "attack") or
-               string.find(self.Name:lower(), "melee") then
-                
-                for i = 1, REPEAT_AMOUNT do
-                    old(self, ...)
-                end
-            end
-        end
-        
-        return old(self, ...)
-    end
-end
-
-local function DisableHitRepeater()
-    mt.__namecall = old
-end
-
--- ==================== INICIALIZAR ====================
-local ProximityBtn, HitRepeaterBtn, RadiusInput, RepeatInput, StatusText = CreateMainFrame()
-
--- Actualizar valores de inputs
-RadiusInput.FocusLost:Connect(function()
-    local num = tonumber(RadiusInput.Text)
-    if num and num >= 5 and num <= 50 then
-        proximityRadius = num
-        RadiusInput.Text = tostring(proximityRadius)
-    else
-        RadiusInput.Text = tostring(proximityRadius)
-    end
-end)
-
-RepeatInput.FocusLost:Connect(function()
-    local num = tonumber(RepeatInput.Text)
-    if num and num >= 1 and num <= 100 then
-        REPEAT_AMOUNT = math.floor(num)
-        RepeatInput.Text = tostring(REPEAT_AMOUNT)
-    else
-        RepeatInput.Text = tostring(REPEAT_AMOUNT)
-    end
-end)
-
--- Botón de proximidad
-ProximityBtn.MouseButton1Click:Connect(function()
-    proximityDamageEnabled = not proximityDamageEnabled
-    
-    if proximityDamageEnabled then
-        ProximityBtn.Text = "🔘 PROXIMITY: ON 🔘"
-        ProximityBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
-        ProximityBtn.BackgroundColor3 = Color3.fromRGB(45, 85, 45)
-        StatusText.Text = "✅ ACTIVADO - Daño automático en radio " .. proximityRadius .. " studs"
-        StatusText.TextColor3 = Color3.fromRGB(100, 200, 100)
-        
-        -- Iniciar loop
-        coroutine.wrap(ProximityDamageLoop)()
-    else
-        ProximityBtn.Text = "🔘 PROXIMITY: OFF 🔘"
-        ProximityBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-        ProximityBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-        StatusText.Text = "⚡ Modo desactivado - Actívalo para daño automático"
-        StatusText.TextColor3 = Color3.fromRGB(100, 100, 110)
-    end
-end)
-
--- Botón de hit repeater
-HitRepeaterBtn.MouseButton1Click:Connect(function()
-    hitRepeaterEnabled = not hitRepeaterEnabled
-    
-    if hitRepeaterEnabled then
-        HitRepeaterBtn.Text = "👊 HIT REPEATER: ON 👊"
-        HitRepeaterBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
-        HitRepeaterBtn.BackgroundColor3 = Color3.fromRGB(45, 65, 45)
-        EnableHitRepeater()
-        StatusText.Text = "✅ HIT REPEATER activado - Repite golpes " .. REPEAT_AMOUNT .. "x"
-    else
-        HitRepeaterBtn.Text = "👊 HIT REPEATER: OFF 👊"
-        HitRepeaterBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-        HitRepeaterBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-        DisableHitRepeater()
-        if not proximityDamageEnabled then
-            StatusText.Text = "⚡ Activa PROXIMITY o HIT REPEATER"
-        end
-    end
-end)
-
-print("✅ Proximity Damage System cargado - Daño automático por cercanía")
+-- Iniciar UI
+CreateUI()
+print("✅ Auto Damage System CARGADO - Hace daño automáticamente sin golpear")
