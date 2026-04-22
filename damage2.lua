@@ -1,16 +1,5 @@
---[[
-    SCRIPT 3: SIMULACIÓN DE INPUT
-    Simula que el jugador está golpeando manualmente
-    MÁS HUMANO = MENOS DETECTABLE
---]]
-
-local AutoDamage = false
-local RADIUS = 10
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local VirtualInput = game:GetService("VirtualInputManager")
-local player = Players.LocalPlayer
+-- Script 1: Multiplicador de golpes (MÁS SEGURO)
+local multiplier = 5
 
 local HitRemote = game:GetService("ReplicatedStorage")
     :WaitForChild("Packages")
@@ -20,127 +9,94 @@ local HitRemote = game:GetService("ReplicatedStorage")
     :WaitForChild("RF")
     :WaitForChild("Hit")
 
--- Simular movimiento de mouse
-local function SimulateMouseMovement()
-    local randomX = math.random(100, 700)
-    local randomY = math.random(100, 500)
-    VirtualInput:SendMouseMoveEvent(Vector2.new(randomX, randomY), game, 0)
-end
+local oldInvoke = HitRemote.InvokeServer
 
--- Simular click
-local function SimulateClick()
-    SimulateMouseMovement()
-    task.wait(math.random(10, 50) / 1000)
-    VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-    task.wait(math.random(30, 80) / 1000)
-    VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-end
-
-local function DealDamage(target)
-    if not target or not target.Character then return end
-    local hum = target.Character:FindFirstChild("Humanoid")
-    local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    
-    if not hum or hum.Health <= 0 then return end
-    if not myHRP then return end
-    
-    -- Simular comportamiento humano
-    SimulateClick()
-    task.wait(math.random(20, 60) / 1000)
-    
-    pcall(function()
-        HitRemote:InvokeServer(hum, myHRP.Position)
-    end)
-end
-
--- Loop con comportamiento humano
-local lastAttack = 0
-local currentTarget = nil
-
-RunService.Stepped:Connect(function()
-    if not AutoDamage then return end
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-    
-    local myHRP = player.Character.HumanoidRootPart
-    local closest = nil
-    local closestDist = RADIUS
-    
-    -- Encontrar el enemigo más cercano
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-            local hum = p.Character:FindFirstChild("Humanoid")
-            
-            if hum and hum.Health > 0 and hrp then
-                local dist = (hrp.Position - myHRP.Position).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closest = p
-                end
-            end
-        end
+HitRemote.InvokeServer = function(self, ...)
+    local args = {...}
+    for i = 1, multiplier do
+        oldInvoke(self, unpack(args))
     end
-    
-    -- Atacar al más cercano con delay humano
-    if closest then
-        local now = tick()
-        if now - lastAttack > math.random(400, 900) / 1000 then
-            lastAttack = now
-            DealDamage(closest)
-        end
-    end
-end)
+    return oldInvoke(self, unpack(args))
+end
 
--- UI
+-- UI Funcional
+local player = game.Players.LocalPlayer
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "HA"
+screenGui.Name = "MH"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player.PlayerGui
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 180, 0, 80)
-frame.Position = UDim2.new(0.5, -90, 0.5, -40)
-frame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-frame.BackgroundTransparency = 0.1
+frame.Size = UDim2.new(0, 200, 0, 100)
+frame.Position = UDim2.new(0.5, -100, 0.5, -50)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+frame.BackgroundTransparency = 0
 frame.BorderSizePixel = 0
 frame.Parent = screenGui
 
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
+corner.CornerRadius = UDim.new(0, 10)
 corner.Parent = frame
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
+title.Size = UDim2.new(1, 0, 0, 35)
 title.BackgroundTransparency = 1
-title.Text = "⚡ HUMAN AUTO"
+title.Text = "⚡ MULTI HIT"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextSize = 14
+title.TextSize = 16
 title.Font = Enum.Font.GothamBold
 title.Parent = frame
 
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1, 0, 0, 25)
+status.Position = UDim2.new(0, 0, 0.4, 0)
+status.BackgroundTransparency = 1
+status.Text = "Multiplicador: x" .. multiplier
+status.TextColor3 = Color3.fromRGB(200, 200, 200)
+status.TextSize = 12
+status.Font = Enum.Font.Gotham
+status.Parent = frame
+
+local enabled = true
 local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0.7, 0, 0, 35)
-toggleBtn.Position = UDim2.new(0.15, 0, 0.45, 0)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-toggleBtn.Text = "ACTIVAR"
+toggleBtn.Size = UDim2.new(0.5, 0, 0, 30)
+toggleBtn.Position = UDim2.new(0.25, 0, 0.65, 0)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 70)
+toggleBtn.Text = "ON"
 toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleBtn.Font = Enum.Font.GothamBold
-toggleBtn.TextSize = 12
+toggleBtn.TextSize = 14
 toggleBtn.Parent = frame
 
 local btnCorner = Instance.new("UICorner")
-btnCorner.CornerRadius = UDim.new(0, 6)
+btnCorner.CornerRadius = UDim.new(0, 8)
 btnCorner.Parent = toggleBtn
 
-toggleBtn.MouseButton1Click:Connect(function()
-    AutoDamage = not AutoDamage
-    if AutoDamage then
-        toggleBtn.Text = "✓ ACTIVADO"
+local function setEnabled(state)
+    enabled = state
+    if enabled then
+        toggleBtn.Text = "ON"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 70)
+        status.TextColor3 = Color3.fromRGB(100, 255, 100)
+        status.Text = "✓ ACTIVADO - x" .. multiplier
+        HitRemote.InvokeServer = function(self, ...)
+            for i = 1, multiplier do
+                oldInvoke(self, ...)
+            end
+            return oldInvoke(self, ...)
+        end
     else
-        toggleBtn.Text = "ACTIVAR"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+        toggleBtn.Text = "OFF"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(130, 70, 70)
+        status.TextColor3 = Color3.fromRGB(200, 200, 200)
+        status.Text = "❌ DESACTIVADO - x" .. multiplier
+        HitRemote.InvokeServer = oldInvoke
     end
+end
+
+toggleBtn.MouseButton1Click:Connect(function()
+    setEnabled(not enabled)
 end)
 
-print("✅ Script 3 cargado - Modo humano activado")
+setEnabled(true)
+print("✅ Script 1 cargado - Multiplicador x" .. multiplier)
