@@ -1,6 +1,6 @@
 local REPEAT_AMOUNT = 26  -- Veces que repetirá cada golpe por tick
-local KillAuraEnabled = false
-local AutoDamageEnabled = false  -- Nuevo modo: daño automático puro
+local AutoDamageEnabled = false
+local RADIUS = 15  -- Radio de daño automático (studs)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -8,48 +8,18 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 
--- Encuentra el HitRemote automáticamente
-local HitRemote = nil
-local function FindHitRemote()
-    -- Buscar en ReplicatedStorage
-    for _, obj in pairs(game:GetService("ReplicatedStorage"):GetChildren()) do
-        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-            if obj.Name:lower():find("hit") or obj.Name:lower():find("damage") or obj.Name:lower():find("attack") then
-                HitRemote = obj
-                print("✅ HitRemote encontrado:", obj.Name)
-                return
-            end
-        end
-    end
-    
-    -- Buscar en Workspace
-    for _, obj in pairs(workspace:GetChildren()) do
-        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-            if obj.Name:lower():find("hit") or obj.Name:lower():find("damage") or obj.Name:lower():find("attack") then
-                HitRemote = obj
-                print("✅ HitRemote encontrado:", obj.Name)
-                return
-            end
-        end
-    end
-    
-    -- Buscar en el jugador
-    for _, obj in pairs(player:GetChildren()) do
-        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-            if obj.Name:lower():find("hit") or obj.Name:lower():find("damage") or obj.Name:lower():find("attack") then
-                HitRemote = obj
-                print("✅ HitRemote encontrado:", obj.Name)
-                return
-            end
-        end
-    end
-    
-    print("❌ No se encontró HitRemote - Usa el nombre correcto")
-end
+-- ==================== HITREMOTE CORRECTO ====================
+local HitRemote = game:GetService("ReplicatedStorage")
+    :WaitForChild("Packages")
+    :WaitForChild("Knit")
+    :WaitForChild("Services")
+    :WaitForChild("CombatService")
+    :WaitForChild("RF")
+    :WaitForChild("Hit")
 
-FindHitRemote()
+print("✅ HitRemote encontrado:", HitRemote)
 
--- ==================== SISTEMA DE DAÑO AUTOMÁTICO ====================
+-- ==================== FUNCIÓN PARA HACER DAÑO ====================
 local function DealDamageToTarget(target)
     if not target or not target.Character then return false end
     
@@ -60,15 +30,10 @@ local function DealDamageToTarget(target)
     if not hum or hum.Health <= 0 then return false end
     if not hrp or not myHRP then return false end
     
-    if not HitRemote then
-        FindHitRemote()
-        if not HitRemote then return false end
-    end
-    
-    -- Preparar argumentos (como en tu script original)
+    -- Argumentos que espera el Hit Remote
     local args = {
         hum,  -- El humanoid del enemigo
-        vector.new(myHRP.Position.X, myHRP.Position.Y, myHRP.Position.Z)  -- Posición del jugador
+        myHRP.Position  -- Posición del jugador (vector3)
     }
     
     local success = false
@@ -76,11 +41,7 @@ local function DealDamageToTarget(target)
     -- Aplicar daño múltiples veces
     for i = 1, REPEAT_AMOUNT do
         pcall(function()
-            if HitRemote:IsA("RemoteFunction") then
-                HitRemote:InvokeServer(unpack(args))
-            else
-                HitRemote:FireServer(unpack(args))
-            end
+            HitRemote:InvokeServer(unpack(args))
             success = true
         end)
     end
@@ -88,7 +49,7 @@ local function DealDamageToTarget(target)
     return success
 end
 
--- Loop principal de daño automático (SIN NECESIDAD DE GOLPEAR)
+-- ==================== LOOP DE DAÑO AUTOMÁTICO ====================
 local autoDamageConnection = nil
 
 local function StartAutoDamage()
@@ -99,7 +60,7 @@ local function StartAutoDamage()
         if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
         
         local myHRP = player.Character.HumanoidRootPart
-        local maxRange = 15  -- Radio de daño automático (studs)
+        local enemiesDamaged = 0
         
         -- Buscar todos los enemigos en rango
         for _, p in pairs(Players:GetPlayers()) do
@@ -111,11 +72,18 @@ local function StartAutoDamage()
                     local dist = (hrp.Position - myHRP.Position).Magnitude
                     
                     -- Si está en rango, hacer daño AUTOMÁTICAMENTE
-                    if dist <= maxRange then
-                        DealDamageToTarget(p)
+                    if dist <= RADIUS then
+                        if DealDamageToTarget(p) then
+                            enemiesDamaged = enemiesDamaged + 1
+                        end
                     end
                 end
             end
+        end
+        
+        -- Actualizar estado visual (opcional)
+        if enemiesDamaged > 0 then
+            -- Silencioso, solo hace daño
         end
     end)
 end
@@ -137,8 +105,8 @@ local function CreateUI()
     
     -- Frame principal
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 220, 0, 160)
-    Frame.Position = UDim2.new(0.5, -110, 0.5, -80)
+    Frame.Size = UDim2.new(0, 240, 0, 180)
+    Frame.Position = UDim2.new(0.5, -120, 0.5, -90)
     Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
     Frame.BorderSizePixel = 0
     Frame.ClipsDescendants = true
@@ -154,7 +122,7 @@ local function CreateUI()
     UIStroke.Thickness = 1
     UIStroke.Parent = Frame
     
-    -- Barra superior
+    -- Barra superior (arrastrable)
     local TopBar = Instance.new("Frame")
     TopBar.Size = UDim2.new(1, 0, 0, 32)
     TopBar.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
@@ -207,7 +175,7 @@ local function CreateUI()
     -- Botón principal
     local ToggleBtn = Instance.new("TextButton")
     ToggleBtn.Size = UDim2.new(0.8, 0, 0, 45)
-    ToggleBtn.Position = UDim2.new(0.1, 0, 0.1, 0)
+    ToggleBtn.Position = UDim2.new(0.1, 0, 0.08, 0)
     ToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
     ToggleBtn.Text = "🔴 AUTO DAMAGE: OFF"
     ToggleBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
@@ -222,7 +190,7 @@ local function CreateUI()
     -- Configuración de repeticiones
     local RepeatLabel = Instance.new("TextLabel")
     RepeatLabel.Size = UDim2.new(0.45, 0, 0, 25)
-    RepeatLabel.Position = UDim2.new(0.05, 0, 0.45, 0)
+    RepeatLabel.Position = UDim2.new(0.05, 0, 0.38, 0)
     RepeatLabel.BackgroundTransparency = 1
     RepeatLabel.Text = "🔄 DAÑO POR TICK:"
     RepeatLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
@@ -233,7 +201,7 @@ local function CreateUI()
     
     local RepeatInput = Instance.new("TextBox")
     RepeatInput.Size = UDim2.new(0.35, 0, 0, 32)
-    RepeatInput.Position = UDim2.new(0.6, 0, 0.42, 0)
+    RepeatInput.Position = UDim2.new(0.6, 0, 0.35, 0)
     RepeatInput.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
     RepeatInput.Text = tostring(REPEAT_AMOUNT)
     RepeatInput.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -245,6 +213,43 @@ local function CreateUI()
     local InputCorner = Instance.new("UICorner")
     InputCorner.CornerRadius = UDim.new(0, 6)
     InputCorner.Parent = RepeatInput
+    
+    -- Configuración de radio
+    local RadiusLabel = Instance.new("TextLabel")
+    RadiusLabel.Size = UDim2.new(0.45, 0, 0, 25)
+    RadiusLabel.Position = UDim2.new(0.05, 0, 0.6, 0)
+    RadiusLabel.BackgroundTransparency = 1
+    RadiusLabel.Text = "📡 RADIO (studs):"
+    RadiusLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+    RadiusLabel.TextSize = 11
+    RadiusLabel.Font = Enum.Font.GothamBold
+    RadiusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    RadiusLabel.Parent = Container
+    
+    local RadiusInput = Instance.new("TextBox")
+    RadiusInput.Size = UDim2.new(0.35, 0, 0, 32)
+    RadiusInput.Position = UDim2.new(0.6, 0, 0.57, 0)
+    RadiusInput.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    RadiusInput.Text = tostring(RADIUS)
+    RadiusInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RadiusInput.Font = Enum.Font.Gotham
+    RadiusInput.TextSize = 14
+    RadiusInput.TextXAlignment = Enum.TextXAlignment.Center
+    RadiusInput.Parent = Container
+    
+    local RadiusCorner = Instance.new("UICorner")
+    RadiusCorner.CornerRadius = UDim.new(0, 6)
+    RadiusCorner.Parent = RadiusInput
+    
+    RadiusInput.FocusLost:Connect(function()
+        local num = tonumber(RadiusInput.Text)
+        if num and num >= 5 and num <= 50 then
+            RADIUS = math.floor(num)
+            RadiusInput.Text = tostring(RADIUS)
+        else
+            RadiusInput.Text = tostring(RADIUS)
+        end
+    end)
     
     RepeatInput.FocusLost:Connect(function()
         local num = tonumber(RepeatInput.Text)
@@ -259,7 +264,7 @@ local function CreateUI()
     -- Estado actual
     local StatusText = Instance.new("TextLabel")
     StatusText.Size = UDim2.new(1, 0, 0, 30)
-    StatusText.Position = UDim2.new(0, 0, 0.75, 0)
+    StatusText.Position = UDim2.new(0, 0, 0.85, 0)
     StatusText.BackgroundTransparency = 1
     StatusText.Text = "⚡ Daño automático al acercarte"
     StatusText.TextColor3 = Color3.fromRGB(100, 100, 110)
@@ -311,10 +316,10 @@ local function CreateUI()
             ToggleBtn.Text = "🟢 AUTO DAMAGE: ON"
             ToggleBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
             ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 90, 50)
-            StatusText.Text = "✅ ACTIVADO - Dañando automáticamente (radio 15 studs)"
+            StatusText.Text = "✅ ACTIVADO - Radio " .. RADIUS .. " studs | Daño x" .. REPEAT_AMOUNT
             StatusText.TextColor3 = Color3.fromRGB(100, 200, 100)
             StartAutoDamage()
-            print("✅ Auto Damage ACTIVADO - Haciendo daño x" .. REPEAT_AMOUNT)
+            print("✅ Auto Damage ACTIVADO - Radio:", RADIUS, "| Daño x" .. REPEAT_AMOUNT)
         else
             ToggleBtn.Text = "🔴 AUTO DAMAGE: OFF"
             ToggleBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
@@ -331,4 +336,6 @@ end
 
 -- Iniciar UI
 CreateUI()
-print("✅ Auto Damage System CARGADO - Hace daño automáticamente sin golpear")
+print("✅ Auto Damage System CARGADO - Usando HitRemote correcto")
+print("📍 Radio por defecto:", RADIUS, "studs")
+print("💥 Daño por tick:", REPEAT_AMOUNT, "veces")
