@@ -8,9 +8,6 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 
--- ==================== HITREMOTE CORRECTO ====================
-local HitRemote = ("Hit")
-
 -- ==================== FUNCIÓN PARA HACER DAÑO ====================
 local function DealDamageToTarget(target)
     if not target or not target.Character then return false end
