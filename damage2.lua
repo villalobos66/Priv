@@ -10,11 +10,6 @@ local player = Players.LocalPlayer
 
 -- ==================== HITREMOTE CORRECTO ====================
 local HitRemote = game:GetService("ReplicatedStorage")
-    :WaitForChild("Packages")
-    :WaitForChild("Knit")
-    :WaitForChild("Services")
-    :WaitForChild("CombatService")
-    :WaitForChild("RF")
     :WaitForChild("Hit")
 
 print("✅ HitRemote encontrado:", HitRemote)
