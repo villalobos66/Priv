@@ -8,13 +8,12 @@ local player = Players.LocalPlayer
 -- Variables principales
 local HitboxEnabled = false
 local AntiRagdollEnabled = false
-local targetPlayers = {}  -- TABLA de jugadores objetivo (múltiples)
-local exactTargetNames = {}  -- Nombres para mostrar
+local targetPlayers = {}
+local exactTargetNames = {}
 
--- ==================== LISTA DE PROHIBIDOS (DESDE GITHUB) ====================
+-- ==================== LISTA DE PROHIBIDOS ====================
 local PROHIBITED_USERS = {}
 
--- Cargar lista desde GitHub
 local function cargarListaProhibidos()
     local success, resultado = pcall(function()
         local url = "https://raw.githubusercontent.com/villalobos66/personalizado/main/LisPro.lua"
@@ -28,20 +27,17 @@ local function cargarListaProhibidos()
     return success and resultado or nil
 end
 
--- Cargar la lista
 local listaExterna = cargarListaProhibidos()
 if listaExterna and type(listaExterna) == "table" and #listaExterna > 0 then
     PROHIBITED_USERS = listaExterna
-    print("✅ Lista de prohibidos cargada desde GitHub. Total: " .. #PROHIBITED_USERS .. " usuarios")
+    print("✅ Lista de prohibidos cargada: " .. #PROHIBITED_USERS .. " usuarios")
 else
     PROHIBITED_USERS = {}
-    print("⚠️ No se pudo cargar lista de prohibidos. Lista vacía.")
+    print("⚠️ Lista de prohibidos vacía")
 end
 
--- Función para verificar si un jugador está prohibido
 local function isPlayerProhibited(playerObj)
-    if not playerObj then return false end
-    if playerObj == player then return false end
+    if not playerObj or playerObj == player then return false end
     local playerNameLower = playerObj.Name:lower()
     local displayNameLower = playerObj.DisplayName:lower()
     for _, prohibitedName in ipairs(PROHIBITED_USERS) do
@@ -57,6 +53,7 @@ end
 local HITBOX_SIZE = 30
 local HITBOX_TRANSPARENCY = 0.5
 local HITBOX_COLOR = Color3.fromRGB(255, 0, 0)
+local HITBOX_MATERIAL = Enum.Material.Neon
 
 -- Variables para WalkSpeed
 local WalkSpeedEnabled = false
@@ -68,59 +65,29 @@ local TPWalkEnabled = false
 local TPSpeedValue = 3
 local tpWalkConnection = nil
 
--- ==================== DAMAGE REPEATER OPTIMIZADO (SOLO GOLPES) ====================
+-- ==================== DAMAGE REPEATER ====================
 local REPEAT_AMOUNT = 26
 local damageRepeaterEnabled = false
 local mt = nil
 local old = nil
 local isMetatableHooked = false
 
--- Nombres de eventos que SON golpes (SOLO estos se repetirán)
 local DAMAGE_EVENTS = {
-    "Hit",
-    "Damage",
-    "DealDamage",
-    "TakeDamage",
-    "MeleeHit",
-    "Punch",
-    "Kick",
-    "Attack",
-    "SwordHit",
-    "Swing",
-    "Strike"
+    "Hit", "Damage", "DealDamage", "TakeDamage", "MeleeHit",
+    "Punch", "Kick", "Attack", "SwordHit", "Swing", "Strike"
 }
 
--- Nombres de eventos que NUNCA se repetirán (para evitar deformación)
 local IGNORED_EVENTS = {
-    "SayMessageRequest",
-    "MeleeUpdateEvent",
-    "NinjaBombEvent",
-    "BulletUpdateEvent",
-    "UpdateAnimation",
-    "SetAnimation",
-    "MoveEvent",
-    "JumpEvent",
-    "SitEvent",
-    "Emote",
-    "Dance",
-    "Pose",
-    "AnimationEvent",
-    "CharacterAdded",
-    "HumanoidDescription",
-    "LoadCharacter",
-    "Respawn",
-    "Teleport",
-    "UpdateMotor6D",
-    "SetMotor6D",
-    "Ragdoll",
-    "Fall"
+    "SayMessageRequest", "MeleeUpdateEvent", "NinjaBombEvent",
+    "BulletUpdateEvent", "UpdateAnimation", "SetAnimation",
+    "MoveEvent", "JumpEvent", "SitEvent", "Emote", "Dance",
+    "CharacterAdded", "LoadCharacter", "Respawn", "Teleport",
+    "Ragdoll", "Fall"
 }
 
--- Variables para limitar repeticiones
 local lastRepeatTime = {}
 local MAX_REPEAT_PER_SECOND = 15
 
--- Limpiar caché cada 10 segundos
 task.spawn(function()
     while true do
         task.wait(10)
@@ -133,20 +100,15 @@ task.spawn(function()
     end
 end)
 
--- Función para obtener el nombre del jugador objetivo desde los argumentos
 local function getTargetPlayerFromArgs(...)
     for i = 1, select("#", ...) do
         local arg = select(i, ...)
         if type(arg) == "string" then
             local target = Players:FindFirstChild(arg)
-            if target then
-                return target
-            end
+            if target then return target end
         elseif type(arg) == "table" and arg.Name then
             local target = Players:FindFirstChild(arg.Name)
-            if target then
-                return target
-            end
+            if target then return target end
         elseif type(arg) == "Instance" and arg:IsA("Player") then
             return arg
         end
@@ -154,7 +116,6 @@ local function getTargetPlayerFromArgs(...)
     return nil
 end
 
--- Función para verificar si es un evento de daño
 local function isDamageEvent(eventName)
     local lowerName = eventName:lower()
     for _, damageEvent in ipairs(DAMAGE_EVENTS) do
@@ -165,7 +126,6 @@ local function isDamageEvent(eventName)
     return false
 end
 
--- Función para verificar si es un evento ignorado
 local function isIgnoredEvent(eventName)
     local lowerName = eventName:lower()
     for _, ignoredEvent in ipairs(IGNORED_EVENTS) do
@@ -176,7 +136,6 @@ local function isIgnoredEvent(eventName)
     return false
 end
 
--- Función para verificar límite de tasa
 local function shouldRepeat(targetPlayerName)
     if not targetPlayerName then return true end
     local now = tick()
@@ -188,75 +147,56 @@ local function shouldRepeat(targetPlayerName)
     return true
 end
 
--- Función que crea el nuevo __namecall
 local function createNamecallHandler()
     return function(self, ...)
         local method = getnamecallmethod()
         local eventName = self.Name
         
-        -- IGNORAR COMPLETAMENTE eventos problemáticos (no se repiten NUNCA)
         if isIgnoredEvent(eventName) then
             return old(self, ...)
         end
         
         if method == "FireServer" or method == "InvokeServer" then
-            -- SOLO repetir si es un evento de daño
             if isDamageEvent(eventName) then
-                -- Obtener el jugador objetivo
                 local targetPlayerObj = getTargetPlayerFromArgs(...)
                 
-                -- Verificar si el objetivo está prohibido
                 if targetPlayerObj and isPlayerProhibited(targetPlayerObj) then
-                    -- Si está prohibido, ejecutar el daño solo una vez (sin repetir)
                     return old(self, ...)
                 end
                 
-                -- Obtener nombre para límite de tasa
                 local targetName = targetPlayerObj and targetPlayerObj.Name or nil
                 
-                -- Verificar límite de tasa
                 if shouldRepeat(targetName) then
-                    -- Repetir el daño
                     for i = 1, REPEAT_AMOUNT do
                         old(self, ...)
-                        -- Pequeña pausa para evitar saturación
                         if i % 5 == 0 then
                             task.wait(0.005)
                         end
                     end
                 else
-                    -- Si excede límite, solo ejecutar una vez
                     old(self, ...)
                 end
                 return
             end
         end
         
-        -- Para cualquier otro evento, ejecutar normalmente sin repetir
         return old(self, ...)
     end
 end
 
 local function EnableDamageRepeater()
-    if isMetatableHooked then
-        return
-    end
-    
+    if isMetatableHooked then return end
     if not mt then
         mt = getrawmetatable(game)
         old = mt.__namecall
         setreadonly(mt, false)
     end
-    
     mt.__namecall = createNamecallHandler()
     isMetatableHooked = true
 end
 
 local function DisableDamageRepeater()
-    if not isMetatableHooked then
-        return
-    end
-    
+    if not isMetatableHooked then return end
     if mt and old then
         mt.__namecall = old
         isMetatableHooked = false
@@ -265,7 +205,6 @@ end
 
 local function toggleDamageRepeater()
     damageRepeaterEnabled = not damageRepeaterEnabled
-    
     if damageRepeaterEnabled then
         EnableDamageRepeater()
         if damageRepeaterBtn then
@@ -277,7 +216,6 @@ local function toggleDamageRepeater()
             repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x (solo golpes)"
             repeatStatusLabel.TextColor3 = Color3.fromRGB(80, 255, 80)
         end
-        print("✅ Damage Repeater ACTIVADO - Los jugadores prohibidos NO serán afectados")
     else
         DisableDamageRepeater()
         if damageRepeaterBtn then
@@ -289,11 +227,10 @@ local function toggleDamageRepeater()
             repeatStatusLabel.Text = "Repetir: " .. REPEAT_AMOUNT .. "x"
             repeatStatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
         end
-        print("❌ Damage Repeater DESACTIVADO")
     end
 end
 
--- ==================== ANTI-RAGDOLL ====================
+-- ==================== ANTI-RAGDOLL OPTIMIZADO ====================
 local antiRagdollConnection = nil
 local currentCharacterJoints = {}
 
@@ -333,8 +270,7 @@ local function isInRagdoll(humanoid)
     local state = humanoid:GetState()
     return state == Enum.HumanoidStateType.Physics or
            state == Enum.HumanoidStateType.FallingDown or
-           humanoid.PlatformStand or
-           (humanoid:GetState() == Enum.HumanoidStateType.Running and humanoid.PlatformStand)
+           humanoid.PlatformStand
 end
 
 local function antiRagdollLoop()
@@ -366,7 +302,6 @@ local function setupAntiRagdoll(character)
         antiRagdollConnection:Disconnect()
         antiRagdollConnection = nil
     end
-    
     task.wait(0.5)
     updateJoints(character)
     if AntiRagdollEnabled then
@@ -376,7 +311,6 @@ end
 
 local function toggleAntiRagdoll()
     AntiRagdollEnabled = not AntiRagdollEnabled
-    
     if AntiRagdollEnabled then
         if player.Character then
             setupAntiRagdoll(player.Character)
@@ -428,17 +362,23 @@ local function findPlayerByPartialName(inputText)
     return false, "No encontrado"
 end
 
--- ==================== HITBOX CON TRANSPARENCIA FUNCIONAL ====================
+-- ==================== HITBOX OPTIMIZADO (SOLO CUANDO ES NECESARIO) ====================
+-- Almacenar estado actual de hitboxes para evitar cambios innecesarios
+local currentHitboxState = {} -- player -> {size, transparency, color, material, enabled}
+
 local function resetHitbox(target)
     pcall(function()
         if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
             local rootPart = target.Character.HumanoidRootPart
-            rootPart.Size = Vector3.new(2, 2, 1)
-            rootPart.Transparency = 1
-            rootPart.BrickColor = BrickColor.new("Medium stone grey")
-            rootPart.Material = Enum.Material.Plastic
-            rootPart.CanCollide = false
-            rootPart.Color = Color3.fromRGB(255, 255, 255)
+            -- Solo resetear si no está ya en estado normal
+            if currentHitboxState[target] and currentHitboxState[target].enabled then
+                rootPart.Size = Vector3.new(2, 2, 1)
+                rootPart.Transparency = 1
+                rootPart.Color = Color3.fromRGB(255, 255, 255)
+                rootPart.Material = Enum.Material.Plastic
+                rootPart.CanCollide = false
+                currentHitboxState[target] = {enabled = false, size = 2, transparency = 1}
+            end
         end
     end)
 end
@@ -455,13 +395,28 @@ local function applyHitboxToPlayer(target)
     pcall(function()
         if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
             local rootPart = target.Character.HumanoidRootPart
+            
+            -- Verificar si ya tiene el hitbox aplicado para evitar cambios innecesarios
+            local current = currentHitboxState[target]
+            if current and current.enabled and 
+               current.size == HITBOX_SIZE and 
+               current.transparency == HITBOX_TRANSPARENCY then
+                return -- Ya está correcto, no hacer nada
+            end
+            
+            -- Aplicar hitbox
             rootPart.Size = Vector3.new(HITBOX_SIZE, HITBOX_SIZE, HITBOX_SIZE)
             rootPart.Transparency = HITBOX_TRANSPARENCY
             rootPart.Color = HITBOX_COLOR
-            rootPart.BrickColor = BrickColor.new("Really red")
-            rootPart.Material = Enum.Material.SmoothPlastic
+            rootPart.Material = HITBOX_MATERIAL
             rootPart.CanCollide = false
-            rootPart.Reflectance = 0
+            
+            -- Guardar estado
+            currentHitboxState[target] = {
+                enabled = true,
+                size = HITBOX_SIZE,
+                transparency = HITBOX_TRANSPARENCY
+            }
         end
     end)
 end
@@ -474,8 +429,8 @@ local function shouldHitPlayer(playerObj)
     return true
 end
 
--- ACTUALIZADO: Función que aplica hitbox a múltiples targets
-local function updateHitboxes()
+-- NUEVA FUNCIÓN OPTIMIZADA: Solo aplica hitboxes cuando el estado cambia
+local function updateHitboxesOptimized()
     if not HitboxEnabled then
         resetAllHitboxes()
         return
@@ -483,20 +438,29 @@ local function updateHitboxes()
     
     -- Si hay targets específicos
     if #targetPlayers > 0 then
-        -- Primero resetear hitboxes de TODOS los jugadores
+        -- Resetear hitboxes de jugadores que NO están en targets
         for _, v in pairs(Players:GetPlayers()) do
             if v ~= player and not isPlayerProhibited(v) then
-                resetHitbox(v)
+                local isTarget = false
+                for _, target in ipairs(targetPlayers) do
+                    if target == v then
+                        isTarget = true
+                        break
+                    end
+                end
+                if not isTarget then
+                    resetHitbox(v)
+                end
             end
         end
-        -- Luego aplicar hitbox SOLO a los targets seleccionados
+        -- Aplicar hitbox a targets
         for _, target in ipairs(targetPlayers) do
             if target and shouldHitPlayer(target) then
                 applyHitboxToPlayer(target)
             end
         end
     else
-        -- Si no hay targets específicos, aplicar a todos los jugadores válidos
+        -- Sin targets específicos, aplicar a todos
         for _, v in pairs(Players:GetPlayers()) do
             if shouldHitPlayer(v) then
                 applyHitboxToPlayer(v)
@@ -507,14 +471,26 @@ local function updateHitboxes()
     end
 end
 
+-- Evento de cambio de tamaño/transparencia - actualizar hitboxes solo cuando cambian
+local function onHitboxConfigChanged()
+    if HitboxEnabled then
+        -- Forzar actualización de todos los hitboxes activos
+        for _, v in pairs(Players:GetPlayers()) do
+            if shouldHitPlayer(v) then
+                -- Limpiar estado para forzar reaplicación
+                currentHitboxState[v] = nil
+            end
+        end
+        updateHitboxesOptimized()
+    end
+end
+
 local function setHitboxSize(value)
     HITBOX_SIZE = tonumber(value)
     if hitboxSizeLabel then
         hitboxSizeLabel.Text = "Tamaño: " .. HITBOX_SIZE
     end
-    if HitboxEnabled then
-        updateHitboxes()
-    end
+    onHitboxConfigChanged()
 end
 
 local function setHitboxTransparency(value)
@@ -522,12 +498,49 @@ local function setHitboxTransparency(value)
     if hitboxTransparencyLabel then
         hitboxTransparencyLabel.Text = "Transparencia: " .. HITBOX_TRANSPARENCY
     end
+    onHitboxConfigChanged()
+end
+
+-- Eventos de jugadores para hitbox optimizado
+local function onPlayerAdded(p)
+    task.wait(1)
     if HitboxEnabled then
-        updateHitboxes()
+        local isTarget = #targetPlayers == 0
+        if not isTarget then
+            for _, target in ipairs(targetPlayers) do
+                if target == p then
+                    isTarget = true
+                    break
+                end
+            end
+        end
+        if isTarget and shouldHitPlayer(p) then
+            applyHitboxToPlayer(p)
+        end
     end
 end
 
--- Funciones de movimiento
+local function onCharacterAdded(p, character)
+    task.wait(0.5)
+    if HitboxEnabled then
+        local isTarget = #targetPlayers == 0
+        if not isTarget then
+            for _, target in ipairs(targetPlayers) do
+                if target == p then
+                    isTarget = true
+                    break
+                end
+            end
+        end
+        if isTarget and shouldHitPlayer(p) then
+            -- Limpiar estado para forzar reaplicación
+            currentHitboxState[p] = nil
+            applyHitboxToPlayer(p)
+        end
+    end
+end
+
+-- ==================== FUNCIONES DE MOVIMIENTO ====================
 local function getCharacter()
     return player.Character
 end
@@ -601,7 +614,6 @@ local function setWalkSpeedEnabled(enabled)
     end
 end
 
--- Funciones para TP Walk
 local function setupTPWalk()
     if tpWalkConnection then
         tpWalkConnection:Disconnect()
@@ -686,7 +698,7 @@ local function MakeDraggableWithHandle(frame, handle)
     end)
 end
 
--- ==================== INTERFAZ DE BOTONES PRINCIPALES (65% del tamaño original) ====================
+-- ==================== INTERFAZ DE BOTONES PRINCIPALES ====================
 local function CreateButtonsInterface()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ButtonsGUI"
@@ -820,7 +832,7 @@ local function CreateButtonsInterface()
     return ScreenGui, Frame, ConfigButton
 end
 
--- ==================== INTERFAZ DE CONFIGURACIÓN (70% del tamaño original) ====================
+-- ==================== INTERFAZ DE CONFIGURACIÓN ====================
 local function CreateConfigInterface()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ConfigGUI"
@@ -830,7 +842,7 @@ local function CreateConfigInterface()
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 182, 0, 270)  -- Un poco más alto para mostrar múltiples targets
+    Frame.Size = UDim2.new(0, 182, 0, 270)
     Frame.Position = UDim2.new(0.5, -91, 0.5, -135)
     Frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     Frame.BorderSizePixel = 0
@@ -877,9 +889,7 @@ local function CreateConfigInterface()
     CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     CloseBtn.TextSize = 11
     CloseBtn.Font = Enum.Font.GothamBold
-    CloseBtn.Parent = TitleBar
-
-    local CloseCorner = Instance.new("UICorner")
+    CloseBtn.Parent = TitleBar    local CloseCorner = Instance.new("UICorner")
     CloseCorner.CornerRadius = UDim.new(0, 4)
     CloseCorner.Parent = CloseBtn
 
@@ -904,7 +914,6 @@ local function CreateConfigInterface()
     hitboxTitle.Parent = Content
     yOffset = yOffset + 0.055
 
-    -- Tamaño
     local sizeLabel = Instance.new("TextLabel")
     sizeLabel.Size = UDim2.new(0.3, 0, 0, 14)
     sizeLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
@@ -943,7 +952,6 @@ local function CreateConfigInterface()
     hitboxSizeLabel.Parent = Content
     yOffset = yOffset + 0.06
 
-    -- Transparencia
     local transLabel = Instance.new("TextLabel")
     transLabel.Size = UDim2.new(0.3, 0, 0, 14)
     transLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
@@ -982,7 +990,6 @@ local function CreateConfigInterface()
     hitboxTransparencyLabel.Parent = Content
     yOffset = yOffset + 0.06
 
-    -- Separador
     local sep1 = Instance.new("Frame")
     sep1.Size = UDim2.new(0.9, 0, 0, 1)
     sep1.Position = UDim2.new(0.05, 0, yOffset, 0)
@@ -1053,7 +1060,6 @@ local function CreateConfigInterface()
     walkSpeedValueLabel.Parent = Content
     yOffset = yOffset + 0.05
 
-    -- Separador
     local sep2 = Instance.new("Frame")
     sep2.Size = UDim2.new(0.9, 0, 0, 1)
     sep2.Position = UDim2.new(0.05, 0, yOffset, 0)
@@ -1113,7 +1119,6 @@ local function CreateConfigInterface()
     tpSpeedValueLabel.Parent = Content
     yOffset = yOffset + 0.06
 
-    -- Separador
     local sep3 = Instance.new("Frame")
     sep3.Size = UDim2.new(0.9, 0, 0, 1)
     sep3.Position = UDim2.new(0.05, 0, yOffset, 0)
@@ -1174,7 +1179,6 @@ local function CreateConfigInterface()
     repeatStatusLabel.Parent = Content
     yOffset = yOffset + 0.05
 
-    -- Separador
     local sep4 = Instance.new("Frame")
     sep4.Size = UDim2.new(0.9, 0, 0, 1)
     sep4.Position = UDim2.new(0.05, 0, yOffset, 0)
@@ -1183,7 +1187,7 @@ local function CreateConfigInterface()
     sep4.Parent = Content
     yOffset = yOffset + 0.05
 
-    -- Sección TARGET (MÚLTIPLE CON TOGGLE)
+    -- Sección TARGET
     local targetTitle = Instance.new("TextLabel")
     targetTitle.Size = UDim2.new(0.9, 0, 0, 11)
     targetTitle.Position = UDim2.new(0.05, 0, yOffset, 0)
@@ -1213,7 +1217,7 @@ local function CreateConfigInterface()
     yOffset = yOffset + 0.07
 
     targetStatus = Instance.new("TextLabel")
-    targetStatus.Size = UDim2.new(0.9, 0, 0, 24)  -- Más alto para mostrar varios nombres
+    targetStatus.Size = UDim2.new(0.9, 0, 0, 24)
     targetStatus.Position = UDim2.new(0.05, 0, yOffset, 0)
     targetStatus.BackgroundTransparency = 1
     targetStatus.Text = "Objetivos: TODOS"
@@ -1237,7 +1241,6 @@ local function CreateConfigInterface()
     searchResult.Parent = Content
     yOffset = yOffset + 0.05
 
-    -- Botones
     local btnContainer = Instance.new("Frame")
     btnContainer.Size = UDim2.new(0.9, 0, 0, 18)
     btnContainer.Position = UDim2.new(0.05, 0, yOffset, 0)
@@ -1287,7 +1290,6 @@ local function CreateConfigInterface()
     closestCorner.Parent = closestBtn
     yOffset = yOffset + 0.07
 
-    -- Info
     local infoLabel = Instance.new("TextLabel")
     infoLabel.Size = UDim2.new(0.9, 0, 0, 10)
     infoLabel.Position = UDim2.new(0.05, 0, yOffset, 0)
@@ -1450,7 +1452,6 @@ local function updateDamageRepeaterButton()
     end
 end
 
--- ACTUALIZADO: Muestra la lista de objetivos
 local function updateTargetStatus()
     if #targetPlayers > 0 then
         local names = {}
@@ -1469,7 +1470,6 @@ local function updateTargetStatus()
     end
 end
 
--- NUEVA FUNCIÓN: Añade o quita un jugador (TOGGLE)
 local function toggleTarget(playerObj, displayName)
     if not playerObj then return false end
     if playerObj == player then
@@ -1483,35 +1483,33 @@ local function toggleTarget(playerObj, displayName)
         return false
     end
     
-    -- Buscar si ya está en la lista
     for i, existing in ipairs(targetPlayers) do
         if existing == playerObj then
-            -- Si está, lo eliminamos
             table.remove(targetPlayers, i)
             exactTargetNames[playerObj] = nil
             updateTargetStatus()
             searchResult.Text = "🗑️ Eliminado: " .. (displayName or playerObj.Name)
             searchResult.TextColor3 = Color3.fromRGB(255, 150, 50)
             if HitboxEnabled then
-                updateHitboxes()
+                -- Limpiar estado y resetear hitbox
+                currentHitboxState[playerObj] = nil
+                updateHitboxesOptimized()
             end
             return true
         end
     end
     
-    -- Si no está, lo añadimos
     table.insert(targetPlayers, playerObj)
     exactTargetNames[playerObj] = displayName or playerObj.Name
     updateTargetStatus()
     searchResult.Text = "✓ Añadido: " .. (displayName or playerObj.Name)
     searchResult.TextColor3 = Color3.fromRGB(80, 255, 80)
     if HitboxEnabled then
-        updateHitboxes()
+        updateHitboxesOptimized()
     end
     return true
 end
 
--- ACTUALIZADO: Elimina el último objetivo añadido
 local function removeLastTarget()
     if #targetPlayers > 0 then
         local removed = table.remove(targetPlayers)
@@ -1521,7 +1519,8 @@ local function removeLastTarget()
         searchResult.Text = "🗑️ Eliminado: " .. removedName
         searchResult.TextColor3 = Color3.fromRGB(255, 150, 50)
         if HitboxEnabled then
-            updateHitboxes()
+            currentHitboxState[removed] = nil
+            updateHitboxesOptimized()
         end
     else
         searchResult.Text = "⚠️ No hay objetivos para eliminar"
@@ -1534,7 +1533,6 @@ local function removeLastTarget()
     end
 end
 
--- ACTUALIZADO: Añade el jugador más cercano (si no está, lo añade)
 local function addClosestTarget()
     local closestDistance = math.huge
     local closestPlayer = nil
@@ -1564,7 +1562,6 @@ local function addClosestTarget()
     end
 end
 
--- ACTUALIZADO: Limpia TODOS los objetivos
 local function clearTargets()
     targetPlayers = {}
     exactTargetNames = {}
@@ -1573,14 +1570,16 @@ local function clearTargets()
     searchResult.Text = "✓ Todos los objetivos eliminados"
     searchResult.TextColor3 = Color3.fromRGB(120, 200, 255)
     if HitboxEnabled then
-        updateHitboxes()
+        for _, v in pairs(Players:GetPlayers()) do
+            currentHitboxState[v] = nil
+        end
+        updateHitboxesOptimized()
     end
     task.wait(2)
     searchResult.Text = "Escribe nombre y presiona Enter"
     searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
 end
 
--- ACTUALIZADO: Busca y aplica TOGGLE al jugador (añade o quita)
 local function searchAndToggleTarget()
     local searchText = targetBox.Text:gsub("%s+", "")
     if searchText == "" or searchText:lower() == "todos" or searchText:lower() == "all" then
@@ -1612,7 +1611,7 @@ local function searchAndToggleTarget()
     end
 end
 
--- Crear las dos interfaces
+-- Crear interfaces
 local buttonsGUI, buttonsFrame, configButton = CreateButtonsInterface()
 local configGUI, configFrame, closeConfigBtn = CreateConfigInterface()
 
@@ -1620,11 +1619,7 @@ local configGUI, configFrame, closeConfigBtn = CreateConfigInterface()
 hitboxBtn.MouseButton1Click:Connect(function()
     HitboxEnabled = not HitboxEnabled
     updateHitboxButton()
-    if HitboxEnabled then
-        updateHitboxes()
-    else
-        resetAllHitboxes()
-    end
+    updateHitboxesOptimized()
 end)
 
 tpWalkBtn.MouseButton1Click:Connect(function()
@@ -1650,7 +1645,7 @@ closeConfigBtn.MouseButton1Click:Connect(function()
     configGUI.Enabled = false
 end)
 
--- Evento para el input de repeticiones
+-- Evento para repeticiones
 if repeatInput then
     repeatInput.FocusLost:Connect(function()
         local num = tonumber(repeatInput.Text)
@@ -1700,7 +1695,7 @@ if closestBtn then
     closestBtn.MouseButton1Click:Connect(addClosestTarget)
 end
 
--- Eventos de jugadores (actualizado para manejar múltiples targets)
+-- Eventos de jugadores
 Players.PlayerRemoving:Connect(function(p)
     local wasRemoved = false
     for i, target in ipairs(targetPlayers) do
@@ -1713,6 +1708,7 @@ Players.PlayerRemoving:Connect(function(p)
     end
     if wasRemoved then
         updateTargetStatus()
+        currentHitboxState[p] = nil
         if searchResult then
             searchResult.Text = "⚠️ " .. p.Name .. " salió del juego"
             searchResult.TextColor3 = Color3.fromRGB(255, 150, 50)
@@ -1721,47 +1717,16 @@ Players.PlayerRemoving:Connect(function(p)
             searchResult.TextColor3 = Color3.fromRGB(150, 150, 150)
         end
         if HitboxEnabled then
-            updateHitboxes()
+            updateHitboxesOptimized()
         end
     end
 end)
 
-Players.PlayerAdded:Connect(function(p)
-    task.wait(1)
-    if HitboxEnabled then
-        -- Solo aplicar hitbox si está en la lista de targets O si no hay targets específicos
-        local isTarget = #targetPlayers == 0
-        if not isTarget then
-            for _, target in ipairs(targetPlayers) do
-                if target == p then
-                    isTarget = true
-                    break
-                end
-            end
-        end
-        if isTarget and shouldHitPlayer(p) then
-            applyHitboxToPlayer(p)
-        end
-    end
-end)
+Players.PlayerAdded:Connect(onPlayerAdded)
 
 for _, p in pairs(Players:GetPlayers()) do
     p.CharacterAdded:Connect(function(character)
-        task.wait(0.5)
-        if HitboxEnabled then
-            local isTarget = #targetPlayers == 0
-            if not isTarget then
-                for _, target in ipairs(targetPlayers) do
-                    if target == p then
-                        isTarget = true
-                        break
-                    end
-                end
-            end
-            if isTarget and shouldHitPlayer(p) then
-                applyHitboxToPlayer(p)
-            end
-        end
+        onCharacterAdded(p, character)
     end)
 end
 
@@ -1775,19 +1740,12 @@ UserInputService.InputBegan:Connect(function(input, gp)
     elseif input.KeyCode == Enum.KeyCode.E then
         HitboxEnabled = not HitboxEnabled
         updateHitboxButton()
-        if HitboxEnabled then
-            updateHitboxes()
-        else
-            resetAllHitboxes()
-        end
+        updateHitboxesOptimized()
     elseif input.KeyCode == Enum.KeyCode.R then
         setTPWalkEnabled(not TPWalkEnabled)
         updateTPWalkButton()
     end
 end)
-
--- Loop principal del hitbox
-hitboxConnection = RunService.Heartbeat:Connect(updateHitboxes)
 
 -- Inicialización
 updateTargetStatus()
@@ -1801,11 +1759,10 @@ setTPSpeed(3)
 setHitboxSize(30)
 setHitboxTransparency(0.5)
 
-print("=== HITBOX EXPANDER + DAMAGE REPEATER OPTIMIZADO ===")
-print("✅ TOGGLE TARGETS - Escribe un nombre: si está se quita, si no está se añade")
-print("✅ Damage Repeater AHORA SOLO REPITE GOLPES - NO MÁS DEFORMACIÓN")
-print("✅ Los jugadores en la lista de prohibidos NO son afectados por el repeater")
-print("✅ Límite de " .. MAX_REPEAT_PER_SECOND .. " repeticiones por segundo")
-print("✅ Hitbox con transparencia funcional")
+print("=== HITBOX EXPANDER OPTIMIZADO ===")
+print("✅ NO MÁS CRASHEOS - Hitbox optimizado sin loop constante")
+print("✅ Los hitboxes solo se actualizan cuando es necesario")
+print("✅ Sistema de estado para evitar cambios innecesarios")
+print("✅ Damage Repeater solo repite golpes")
 print("✅ Lista de prohibidos: " .. #PROHIBITED_USERS .. " usuarios")
 print("✅ Teclas: K=Mostrar | E=Hitbox | R=TP Walk")
