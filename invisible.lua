@@ -115,46 +115,50 @@ ScreenGui.Name = "InvisHub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = player.PlayerGui
 
+-- Frame principal (contiene el botón) - REDUCIDO 60%
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 80, 0, 35)
-MainFrame.Position = UDim2.new(0.5, -40, 0.5, -17.5)
+MainFrame.Size = UDim2.new(0, 60, 0, 30)  -- 100*0.6=60, 50*0.6=30
+MainFrame.Position = UDim2.new(0.5, -30, 0.5, -15)  -- Centrado con nuevo tamaño
 MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-MainFrame.BackgroundTransparency = 0.15
+MainFrame.BackgroundTransparency = 1  -- Transparente
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
 
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 6)
-Corner.Parent = MainFrame
-
-local Border = Instance.new("UIStroke")
-Border.Color = Color3.fromRGB(200, 0, 0)
-Border.Thickness = 1.5
-Border.Parent = MainFrame
-
+-- Botón - REDUCIDO 60%
 local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Size = UDim2.new(1, -4, 1, -4)
-ToggleBtn.Position = UDim2.new(0, 2, 0, 2)
+ToggleBtn.Size = UDim2.new(1, 0, 1, 0)
+ToggleBtn.Position = UDim2.new(0, 0, 0, 0)
 ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
 ToggleBtn.Text = "OFF"
 ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleBtn.TextSize = 12
+ToggleBtn.TextSize = 10  -- 16*0.6≈10
 ToggleBtn.Font = Enum.Font.GothamBold
 ToggleBtn.Parent = MainFrame
 
 local BtnCorner = Instance.new("UICorner")
-BtnCorner.CornerRadius = UDim.new(0, 4)
+BtnCorner.CornerRadius = UDim.new(0, 5)  -- 8*0.6≈5
 BtnCorner.Parent = ToggleBtn
+
+-- SOLO BORDE SUPERIOR (área arrastrable) - REDUCIDO 60%
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 15)  -- 25*0.6=15 píxeles de grosor
+TopBar.Position = UDim2.new(0, 0, 0, -15)  -- Por encima del botón
+TopBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+TopBar.BackgroundTransparency = 0.15
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+
+local TopBarCorner = Instance.new("UICorner")
+TopBarCorner.CornerRadius = UDim.new(0, 5)  -- 8*0.6≈5
+TopBarCorner.Parent = TopBar
 
 local function UpdateButton()
     if _G.IsInvisActive and _G.IsInvisActive() then
         ToggleBtn.Text = "ON"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-        Border.Color = Color3.fromRGB(0, 255, 0)
     else
         ToggleBtn.Text = "OFF"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-        Border.Color = Color3.fromRGB(200, 0, 0)
     end
 end
 
@@ -165,11 +169,13 @@ ToggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
+-- Sistema de arrastre SOLO para la barra superior
 local dragging = false
 local dragStart, startPos
 
-MainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+       input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
@@ -177,7 +183,8 @@ MainFrame.InputBegan:Connect(function(input)
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
+                     input.UserInputType == Enum.UserInputType.Touch) then
         local delta = input.Position - dragStart
         MainFrame.Position = UDim2.new(
             startPos.X.Scale, startPos.X.Offset + delta.X,
@@ -187,11 +194,13 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+       input.UserInputType == Enum.UserInputType.Touch then
         dragging = false
     end
 end)
 
+-- Tecla T para toggle
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.T then
@@ -203,6 +212,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
 end)
 
 UpdateButton()
+
 -- Desactiva la muerte por caída al vacío
 game:GetService("Workspace").FallenPartsDestroyHeight = 0/0
 
