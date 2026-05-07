@@ -4,57 +4,41 @@ HitboxV2.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 HitboxV2.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 HitboxV2.ResetOnSpawn = false
 
--- Botón flotante para mostrar/ocultar
-local FloatingButton = Instance.new("TextButton")
-FloatingButton.Name = "FloatingButton"
-FloatingButton.Parent = HitboxV2
-FloatingButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-FloatingButton.BackgroundTransparency = 0.7
-FloatingButton.BorderColor3 = Color3.fromRGB(255, 255, 255)
-FloatingButton.BorderSizePixel = 1
-FloatingButton.Size = UDim2.new(0, 40, 0, 40)
-FloatingButton.Position = UDim2.new(0, 10, 0.5, -20)
-FloatingButton.Font = Enum.Font.GothamBold
-FloatingButton.Text = "H"
-FloatingButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-FloatingButton.TextSize = 20
-FloatingButton.Draggable = true
-FloatingButton.Active = true
+-- Botón flotante para mostrar/ocultar la interfaz principal (NUNCA se oculta, solo con K)
+local ToggleGuiButton = Instance.new("TextButton")
+ToggleGuiButton.Name = "ToggleGuiButton"
+ToggleGuiButton.Parent = HitboxV2
+ToggleGuiButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+ToggleGuiButton.BackgroundTransparency = 0.7
+ToggleGuiButton.BorderColor3 = Color3.fromRGB(255, 255, 255)
+ToggleGuiButton.BorderSizePixel = 1
+ToggleGuiButton.Size = UDim2.new(0, 40, 0, 40)
+ToggleGuiButton.Position = UDim2.new(0, 10, 0.5, -20)
+ToggleGuiButton.Font = Enum.Font.GothamBold
+ToggleGuiButton.Text = "H"
+ToggleGuiButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleGuiButton.TextSize = 20
+ToggleGuiButton.Draggable = true
+ToggleGuiButton.Active = true
 
--- Variables para el drag personalizado
-local dragging = false
-local dragStart
-local startPos
+-- Botón pequeño de ON/OFF que siempre está visible (excepto cuando se presiona K)
+local MiniToggleButton = Instance.new("TextButton")
+MiniToggleButton.Name = "MiniToggleButton"
+MiniToggleButton.Parent = HitboxV2
+MiniToggleButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+MiniToggleButton.BorderColor3 = Color3.fromRGB(255, 255, 255)
+MiniToggleButton.BorderSizePixel = 1
+MiniToggleButton.Size = UDim2.new(0, 50, 0, 30)
+MiniToggleButton.Position = UDim2.new(0, 60, 0.5, -15)
+MiniToggleButton.Font = Enum.Font.GothamBold
+MiniToggleButton.Text = "OFF"
+MiniToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+MiniToggleButton.TextSize = 14
+MiniToggleButton.Visible = false
+MiniToggleButton.Draggable = true
+MiniToggleButton.Active = true
 
-FloatingButton.MouseButton1Down:Connect(function()
-    dragging = true
-    dragStart = game:GetService("UserInputService"):GetMouseLocation()
-    startPos = FloatingButton.Position
-end)
-
-game:GetService("UserInputService").InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = false
-    end
-end)
-
-game:GetService("RunService").RenderStepped:Connect(function()
-    if dragging then
-        local mousePos = game:GetService("UserInputService"):GetMouseLocation()
-        local delta = mousePos - dragStart
-        local newX = startPos.X.Scale + (delta.X / game:GetService("GuiService").ScreenSize.X)
-        local newY = startPos.Y.Scale + (delta.Y / game:GetService("GuiService").ScreenSize.Y)
-        
-        -- Limitar a los bordes de la pantalla
-        newX = math.clamp(newX, 0, 1 - (40 / game:GetService("GuiService").ScreenSize.X))
-        newY = math.clamp(newY, 0, 1 - (40 / game:GetService("GuiService").ScreenSize.Y))
-        
-        FloatingButton.Position = UDim2.new(newX, 0, newY, 0)
-        startPos = FloatingButton.Position
-        dragStart = mousePos
-    end
-end)
-
+-- Frame principal de la GUI
 local HEHITBOXV2 = Instance.new("Frame")
 HEHITBOXV2.Name = "HEHITBOXV2"
 HEHITBOXV2.Parent = HitboxV2
@@ -137,7 +121,7 @@ TargetSelector.TextXAlignment = Enum.TextXAlignment.Center
 TargetSelector.PlaceholderText = "Agregar target (mínimo 3 letras)"
 TargetSelector.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
 
--- Botón ON/OFF
+-- Botón ON/OFF dentro de la GUI
 local ToggleButton = Instance.new("TextButton")
 ToggleButton.Parent = CenterContainer
 ToggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -313,7 +297,10 @@ local HitboxExtender = {
     Enabled = false;
     HitboxSize = 7;
     TransparentMode = "soft";
+    AllTargets = false;
 }
+local isGuiVisible = true
+local isEverythingHidden = false
 
 -- Función para resetear hitbox a estado normal
 local function ResetHitbox(targetPlayer)
@@ -335,6 +322,47 @@ local function ResetHitbox(targetPlayer)
     local mesh = hrp:FindFirstChild("SpecialMesh")
     if mesh then
         mesh:Destroy()
+    end
+end
+
+-- Función para resetear TODOS los jugadores
+local function ResetAllHitboxes()
+    for _, v in pairs(game.Players:GetPlayers()) do
+        if v ~= player then
+            ResetHitbox(v)
+        end
+    end
+end
+
+-- Función principal para activar/desactivar el hitbox
+local function ToggleHitbox()
+    if HitboxExtender.Enabled then
+        -- Apagar hitbox
+        HitboxExtender.Enabled = false
+        HitboxExtender.AllTargets = false
+        MiniToggleButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+        MiniToggleButton.Text = "OFF"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        ToggleButton.Text = "OFF"
+        
+        -- Resetear todos los jugadores
+        ResetAllHitboxes()
+    else
+        -- Encender hitbox
+        HitboxExtender.Enabled = true
+        
+        -- Si no hay targets guardados, activar modo "todos"
+        if #SavedTargets == 0 then
+            HitboxExtender.AllTargets = true
+        else
+            HitboxExtender.AllTargets = false
+        end
+        
+        MiniToggleButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+        MiniToggleButton.Text = "ON"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+        ToggleButton.Text = "ON"
+        UpdateAllTargets()
     end
 end
 
@@ -411,6 +439,12 @@ end
 
 -- Función para guardar target
 local function SaveTarget(targetPlayer)
+    -- Si hay al menos un target guardado, desactivar el modo "todos"
+    if HitboxExtender.AllTargets then
+        HitboxExtender.AllTargets = false
+        ResetAllHitboxes()
+    end
+    
     for _, target in ipairs(SavedTargets) do
         if target.UserId == targetPlayer.UserId then
             return false
@@ -427,6 +461,12 @@ local function SaveTarget(targetPlayer)
     if TargetsPanel.Visible then
         RefreshTargetsList()
     end
+    
+    -- Si el hitbox está encendido, actualizar
+    if HitboxExtender.Enabled then
+        UpdateHitboxForPlayer(targetPlayer)
+    end
+    
     return true
 end
 
@@ -449,6 +489,13 @@ local function RemoveTarget(targetUserId)
         end
         
         table.remove(SavedTargets, targetToRemove)
+        
+        -- Si ya no hay targets, activar modo "todos" si el hitbox está encendido
+        if #SavedTargets == 0 and HitboxExtender.Enabled then
+            HitboxExtender.AllTargets = true
+            UpdateAllTargets()
+        end
+        
         if TargetsPanel.Visible then
             RefreshTargetsList()
         end
@@ -460,6 +507,7 @@ end
 
 -- Función para eliminar todos
 local function RemoveAllTargets()
+    -- Resetear hitboxes de los targets específicos
     for _, target in ipairs(SavedTargets) do
         local targetPlayer = game.Players:GetPlayerByUserId(target.UserId)
         if targetPlayer then
@@ -468,14 +516,15 @@ local function RemoveAllTargets()
     end
     
     SavedTargets = {}
-    if TargetsPanel.Visible then
-        RefreshTargetsList()
+    
+    -- Si el hitbox está encendido, activar modo "todos"
+    if HitboxExtender.Enabled then
+        HitboxExtender.AllTargets = true
+        UpdateAllTargets()
     end
     
-    if HitboxExtender.Enabled then
-        HitboxExtender.Enabled = false
-        ToggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        ToggleButton.Text = "OFF"
+    if TargetsPanel.Visible then
+        RefreshTargetsList()
     end
 end
 
@@ -502,8 +551,8 @@ local function RefreshTargetsList()
         emptyLabel.Size = UDim2.new(0, 208, 0, 40)
         emptyLabel.Position = UDim2.new(0, 8, 0, 8)
         emptyLabel.Font = Enum.Font.Gotham
-        emptyLabel.Text = "No hay targets guardados"
-        emptyLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+        emptyLabel.Text = "No hay targets guardados - Se aplicará a TODOS"
+        emptyLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
         emptyLabel.TextSize = 10
         emptyLabel.TextXAlignment = Enum.TextXAlignment.Center
         emptyLabel.TextYAlignment = Enum.TextYAlignment.Center
@@ -558,7 +607,7 @@ local function GetPlayerByUserId(userId)
     return game.Players:GetPlayerByUserId(userId)
 end
 
--- Función para actualizar la hitbox
+-- Función para actualizar la hitbox de un jugador específico
 local function UpdateHitboxForPlayer(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then
         return
@@ -598,39 +647,87 @@ local function UpdateHitboxForPlayer(targetPlayer)
     end
 end
 
--- Función para actualizar todos los targets
+-- Función para actualizar todos los targets (o todos los jugadores si AllTargets está activado)
 local function UpdateAllTargets()
-    for _, target in ipairs(SavedTargets) do
-        local targetPlayer = GetPlayerByUserId(target.UserId)
-        if targetPlayer then
-            UpdateHitboxForPlayer(targetPlayer)
+    if HitboxExtender.AllTargets and #SavedTargets == 0 then
+        -- Aplicar a TODOS los jugadores
+        for _, v in pairs(game.Players:GetPlayers()) do
+            if v ~= player then
+                UpdateHitboxForPlayer(v)
+            end
+        end
+    else
+        -- Aplicar solo a los targets guardados
+        for _, target in ipairs(SavedTargets) do
+            local targetPlayer = GetPlayerByUserId(target.UserId)
+            if targetPlayer then
+                UpdateHitboxForPlayer(targetPlayer)
+            end
         end
     end
 end
 
--- Función para toggle de visibilidad
-local function ToggleVisibility()
-    HEHITBOXV2.Visible = not HEHITBOXV2.Visible
-    if HEHITBOXV2.Visible then
-        FloatingButton.BackgroundTransparency = 0.7
-        FloatingButton.Text = "H"
+-- Función para toggle de visibilidad de la GUI
+local function ToggleGuiVisibility()
+    if isEverythingHidden then return end
+    
+    isGuiVisible = not isGuiVisible
+    HEHITBOXV2.Visible = isGuiVisible
+    
+    if isGuiVisible then
+        MiniToggleButton.Visible = false
+        ToggleGuiButton.Text = "H"
+        ToggleGuiButton.BackgroundTransparency = 0.7
     else
-        FloatingButton.BackgroundTransparency = 0.9
-        FloatingButton.Text = "S"
+        MiniToggleButton.Visible = true
+        ToggleGuiButton.Text = "S"
+        ToggleGuiButton.BackgroundTransparency = 0.3
     end
 end
 
+-- Función para ocultar TODO
+local function HideEverything()
+    isEverythingHidden = true
+    isGuiVisible = false
+    HEHITBOXV2.Visible = false
+    ToggleGuiButton.Visible = false
+    MiniToggleButton.Visible = false
+end
+
+-- Función para mostrar TODO
+local function ShowEverything()
+    isEverythingHidden = false
+    isGuiVisible = true
+    HEHITBOXV2.Visible = true
+    ToggleGuiButton.Visible = true
+    ToggleGuiButton.Text = "H"
+    ToggleGuiButton.BackgroundTransparency = 0.7
+    MiniToggleButton.Visible = false
+end
+
 -- Evento del botón flotante
-FloatingButton.MouseButton1Click:Connect(function()
-    ToggleVisibility()
+ToggleGuiButton.MouseButton1Click:Connect(function()
+    ToggleGuiVisibility()
 end)
 
--- Evento de tecla K
+-- Evento del mini botón ON/OFF
+MiniToggleButton.MouseButton1Click:Connect(function()
+    ToggleHitbox()
+end)
+
+-- Evento de tecla K (oculta TODO)
 game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     
     if input.KeyCode == Enum.KeyCode.K then
-        ToggleVisibility()
+        if isEverythingHidden then
+            ShowEverything()
+        else
+            HideEverything()
+        end
+    elseif input.KeyCode == Enum.KeyCode.E then
+        -- Tecla E para activar/desactivar el hitbox
+        ToggleHitbox()
     end
 end)
 
@@ -669,9 +766,6 @@ TargetSelector.FocusLost:Connect(function(enterPressed)
         local foundPlayer = matches[1]
         if SaveTarget(foundPlayer) then
             TargetSelector.Text = ""
-            if HitboxExtender.Enabled then
-                UpdateHitboxForPlayer(foundPlayer)
-            end
         else
             TargetSelector.Text = ""
         end
@@ -679,9 +773,6 @@ TargetSelector.FocusLost:Connect(function(enterPressed)
         ShowSelectionDialog(matches, function(selectedPlayer)
             if SaveTarget(selectedPlayer) then
                 TargetSelector.Text = ""
-                if HitboxExtender.Enabled then
-                    UpdateHitboxForPlayer(selectedPlayer)
-                end
             else
                 TargetSelector.Text = ""
             end
@@ -724,33 +815,9 @@ TransparencyButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Botón ON/OFF
+-- Botón ON/OFF dentro de la GUI
 ToggleButton.MouseButton1Click:Connect(function()
-    if HitboxExtender.Enabled then
-        ToggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        ToggleButton.Text = "OFF"
-        HitboxExtender.Enabled = false
-        
-        for _, target in ipairs(SavedTargets) do
-            local targetPlayer = GetPlayerByUserId(target.UserId)
-            if targetPlayer then
-                ResetHitbox(targetPlayer)
-            end
-        end
-    else
-        if #SavedTargets > 0 then
-            ToggleButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-            ToggleButton.Text = "ON"
-            HitboxExtender.Enabled = true
-            UpdateAllTargets()
-        else
-            TargetSelector.PlaceholderText = "¡Agrega un target primero!"
-            TargetSelector.PlaceholderColor3 = Color3.fromRGB(255, 100, 100)
-            task.wait(2)
-            TargetSelector.PlaceholderText = "Agregar target (mínimo 3 letras)"
-            TargetSelector.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-        end
-    end
+    ToggleHitbox()
 end)
 
 -- Botón Eliminar Todos
@@ -758,18 +825,24 @@ DeleteAllButton.MouseButton1Click:Connect(function()
     RemoveAllTargets()
 end)
 
+-- Detectar nuevos jugadores que se unen
+game.Players.PlayerAdded:Connect(function(newPlayer)
+    if HitboxExtender.Enabled then
+        if HitboxExtender.AllTargets and #SavedTargets == 0 then
+            -- Si está en modo "todos", aplicar al nuevo jugador
+            task.wait(1) -- Esperar a que el personaje cargue
+            UpdateHitboxForPlayer(newPlayer)
+        end
+    end
+end)
+
 -- Bucle principal
 task.spawn(function()
     while task.wait(0.5) do
         if HitboxExtender.Enabled then
-            for _, target in ipairs(SavedTargets) do
-                pcall(function()
-                    local targetPlayer = GetPlayerByUserId(target.UserId)
-                    if targetPlayer and targetPlayer.Character then
-                        UpdateHitboxForPlayer(targetPlayer)
-                    end
-                end)
-            end
+            pcall(function()
+                UpdateAllTargets()
+            end)
         end
     end
 end)
