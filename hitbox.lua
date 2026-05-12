@@ -4,7 +4,7 @@ HitboxV2.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 HitboxV2.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 HitboxV2.ResetOnSpawn = false
 
--- Botón flotante para mostrar/ocultar la interfaz principal (NUNCA se oculta, solo con K)
+-- Botón flotante para mostrar/ocultar la interfaz principal
 local ToggleGuiButton = Instance.new("TextButton")
 ToggleGuiButton.Name = "ToggleGuiButton"
 ToggleGuiButton.Parent = HitboxV2
@@ -21,7 +21,7 @@ ToggleGuiButton.TextSize = 20
 ToggleGuiButton.Draggable = true
 ToggleGuiButton.Active = true
 
--- Botón pequeño de ON/OFF que siempre está visible (excepto cuando se presiona K)
+-- Botón pequeño de ON/OFF
 local MiniToggleButton = Instance.new("TextButton")
 MiniToggleButton.Name = "MiniToggleButton"
 MiniToggleButton.Parent = HitboxV2
@@ -334,7 +334,67 @@ local function ResetAllHitboxes()
     end
 end
 
--- Función principal para activar/desactivar el hitbox
+-- Función para actualizar la hitbox de un jugador específico (INSTANTÁNEO)
+local function UpdateHitboxForPlayer(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then
+        return
+    end
+    
+    local hrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then
+        return
+    end
+    
+    local mesh = hrp:FindFirstChild("SpecialMesh")
+    
+    if not mesh then
+        mesh = Instance.new("SpecialMesh")
+        mesh.MeshType = Enum.MeshType.Brick
+        mesh.Parent = hrp
+    end
+    
+    if HitboxExtender.Enabled then
+        hrp.Size = Vector3.new(HitboxExtender.HitboxSize, HitboxExtender.HitboxSize, HitboxExtender.HitboxSize)
+        mesh.Scale = Vector3.new(1, 1, 1)
+        
+        if HitboxExtender.TransparentMode == "soft" then
+            hrp.Transparency = 0.65
+            hrp.Material = Enum.Material.SmoothPlastic
+            hrp.Reflectance = 0.3
+        else
+            hrp.Transparency = 1
+            hrp.Material = Enum.Material.SmoothPlastic
+            hrp.Reflectance = 0.1
+        end
+        
+        hrp.Color = Color3.fromRGB(255, 50, 50)
+        hrp.CanCollide = false
+    else
+        ResetHitbox(targetPlayer)
+    end
+end
+
+-- Función para actualizar todos los targets (INSTANTÁNEO)
+local function UpdateAllTargets()
+    if HitboxExtender.AllTargets and #SavedTargets == 0 then
+        -- Aplicar a TODOS los jugadores instantáneamente
+        for _, v in pairs(game.Players:GetPlayers()) do
+            if v ~= player then
+                UpdateHitboxForPlayer(v)
+            end
+        end
+    else
+        -- Aplicar solo a los targets guardados instantáneamente
+        for _, target in ipairs(SavedTargets) do
+            local targetPlayer = game.Players:GetPlayerByUserId(target.UserId)
+            if targetPlayer then
+                UpdateHitboxForPlayer(targetPlayer)
+            end
+        end
+    end
+end
+
+-- Función principal para activar/desactivar el hitbox (INSTANTÁNEA)
 local function ToggleHitbox()
     if HitboxExtender.Enabled then
         -- Apagar hitbox
@@ -345,7 +405,7 @@ local function ToggleHitbox()
         ToggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
         ToggleButton.Text = "OFF"
         
-        -- Resetear todos los jugadores
+        -- Resetear todos los jugadores instantáneamente
         ResetAllHitboxes()
     else
         -- Encender hitbox
@@ -362,6 +422,8 @@ local function ToggleHitbox()
         MiniToggleButton.Text = "ON"
         ToggleButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
         ToggleButton.Text = "ON"
+        
+        -- Aplicar a todos los targets instantáneamente
         UpdateAllTargets()
     end
 end
@@ -442,7 +504,9 @@ local function SaveTarget(targetPlayer)
     -- Si hay al menos un target guardado, desactivar el modo "todos"
     if HitboxExtender.AllTargets then
         HitboxExtender.AllTargets = false
-        ResetAllHitboxes()
+        if HitboxExtender.Enabled then
+            ResetAllHitboxes()
+        end
     end
     
     for _, target in ipairs(SavedTargets) do
@@ -462,7 +526,7 @@ local function SaveTarget(targetPlayer)
         RefreshTargetsList()
     end
     
-    -- Si el hitbox está encendido, actualizar
+    -- Si el hitbox está encendido, actualizar instantáneamente
     if HitboxExtender.Enabled then
         UpdateHitboxForPlayer(targetPlayer)
     end
@@ -602,71 +666,6 @@ local function RefreshTargetsList()
     TargetsList.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
 end
 
--- Función para obtener jugador por userId
-local function GetPlayerByUserId(userId)
-    return game.Players:GetPlayerByUserId(userId)
-end
-
--- Función para actualizar la hitbox de un jugador específico
-local function UpdateHitboxForPlayer(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character then
-        return
-    end
-    
-    local hrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then
-        return
-    end
-    
-    local mesh = hrp:FindFirstChild("SpecialMesh")
-    
-    if not mesh then
-        mesh = Instance.new("SpecialMesh")
-        mesh.MeshType = Enum.MeshType.Brick
-        mesh.Parent = hrp
-    end
-    
-    if HitboxExtender.Enabled then
-        hrp.Size = Vector3.new(HitboxExtender.HitboxSize, HitboxExtender.HitboxSize, HitboxExtender.HitboxSize)
-        mesh.Scale = Vector3.new(1, 1, 1)
-        
-        if HitboxExtender.TransparentMode == "soft" then
-            hrp.Transparency = 0.65
-            hrp.Material = Enum.Material.SmoothPlastic
-            hrp.Reflectance = 0.3
-        else
-            hrp.Transparency = 1
-            hrp.Material = Enum.Material.SmoothPlastic
-            hrp.Reflectance = 0.1
-        end
-        
-        hrp.Color = Color3.fromRGB(255, 50, 50)
-        hrp.CanCollide = false
-    else
-        ResetHitbox(targetPlayer)
-    end
-end
-
--- Función para actualizar todos los targets (o todos los jugadores si AllTargets está activado)
-local function UpdateAllTargets()
-    if HitboxExtender.AllTargets and #SavedTargets == 0 then
-        -- Aplicar a TODOS los jugadores
-        for _, v in pairs(game.Players:GetPlayers()) do
-            if v ~= player then
-                UpdateHitboxForPlayer(v)
-            end
-        end
-    else
-        -- Aplicar solo a los targets guardados
-        for _, target in ipairs(SavedTargets) do
-            local targetPlayer = GetPlayerByUserId(target.UserId)
-            if targetPlayer then
-                UpdateHitboxForPlayer(targetPlayer)
-            end
-        end
-    end
-end
-
 -- Función para toggle de visibilidad de la GUI
 local function ToggleGuiVisibility()
     if isEverythingHidden then return end
@@ -715,7 +714,7 @@ MiniToggleButton.MouseButton1Click:Connect(function()
     ToggleHitbox()
 end)
 
--- Evento de tecla K (oculta TODO)
+-- Evento de teclas
 game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     
@@ -726,7 +725,6 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gameProce
             HideEverything()
         end
     elseif input.KeyCode == Enum.KeyCode.E then
-        -- Tecla E para activar/desactivar el hitbox
         ToggleHitbox()
     end
 end)
@@ -825,23 +823,42 @@ DeleteAllButton.MouseButton1Click:Connect(function()
     RemoveAllTargets()
 end)
 
--- Detectar nuevos jugadores que se unen
+-- Detectar nuevos jugadores que se unen (aplicación instantánea)
 game.Players.PlayerAdded:Connect(function(newPlayer)
     if HitboxExtender.Enabled then
         if HitboxExtender.AllTargets and #SavedTargets == 0 then
-            -- Si está en modo "todos", aplicar al nuevo jugador
-            task.wait(1) -- Esperar a que el personaje cargue
+            task.wait(0.5) -- Pequeña espera para que el personaje cargue
             UpdateHitboxForPlayer(newPlayer)
         end
     end
 end)
 
--- Bucle principal
+-- Bucle de mantenimiento (cada 1 segundo, pero solo para mantener jugadores nuevos)
 task.spawn(function()
-    while task.wait(0.5) do
+    while task.wait(1) do
         if HitboxExtender.Enabled then
             pcall(function()
-                UpdateAllTargets()
+                -- Solo para asegurar que los jugadores que se unieron recientemente tengan la hitbox
+                if HitboxExtender.AllTargets and #SavedTargets == 0 then
+                    for _, v in pairs(game.Players:GetPlayers()) do
+                        if v ~= player then
+                            local hrp = v.Character and v.Character:FindFirstChild("HumanoidRootPart")
+                            if hrp and hrp.Size ~= Vector3.new(HitboxExtender.HitboxSize, HitboxExtender.HitboxSize, HitboxExtender.HitboxSize) then
+                                UpdateHitboxForPlayer(v)
+                            end
+                        end
+                    end
+                else
+                    for _, target in ipairs(SavedTargets) do
+                        local targetPlayer = game.Players:GetPlayerByUserId(target.UserId)
+                        if targetPlayer then
+                            local hrp = targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+                            if hrp and hrp.Size ~= Vector3.new(HitboxExtender.HitboxSize, HitboxExtender.HitboxSize, HitboxExtender.HitboxSize) then
+                                UpdateHitboxForPlayer(targetPlayer)
+                            end
+                        end
+                    end
+                end
             end)
         end
     end
